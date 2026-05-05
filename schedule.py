@@ -19,10 +19,13 @@ def run_main():
 
 # ====== Setup Background Scheduler ======
 scheduler = BackgroundScheduler(timezone=IST)
-scheduler.add_job(run_main, 'cron', hour=22, minute=42)
+
+# Run every 1 minute for testing
+scheduler.add_job(run_main, 'interval', minutes=1)
+
 scheduler.start()
 
-print("⏳ Scheduler started. Waiting for 22:42 AM IST daily...")
+print("⏳ Scheduler started. Running main.py every 1 minute for testing...")
 
 # ====== Keep the script alive ======
 try:
