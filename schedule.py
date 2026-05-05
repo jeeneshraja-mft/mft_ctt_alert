@@ -35,9 +35,9 @@ def run_main():
 scheduler = BlockingScheduler(timezone=IST)
 
 # Schedule daily at 8:30 AM IST
-scheduler.add_job(run_main, 'cron', hour=22, minute=20)
+scheduler.add_job(run_main, 'cron', hour=22, minute=24)
 
-print("⏳ Scheduler started. Waiting for 10:20 AM IST daily...")
+print("⏳ Scheduler started. Waiting for 10:24 AM IST daily...")
 
 # Start the scheduler (this will keep the Repl running)
 scheduler.start()
