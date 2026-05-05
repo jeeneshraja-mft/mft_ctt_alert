@@ -19,8 +19,8 @@ def run_main():
 # ====== Setup scheduler ======
 scheduler = BlockingScheduler(timezone=IST)
 
-# Schedule daily at 10:04 PM IST
-scheduler.add_job(run_main, 'cron', hour=22, minute=04)
+# Schedule daily at 10:07 PM IST
+scheduler.add_job(run_main, 'cron', hour=22, minute=7)
 
 print("⏳ Scheduler started. Waiting for 8:15 PM IST daily...")
 
