@@ -5,6 +5,7 @@ from datetime import datetime
 import pytz
 from flask import Flask
 from threading import Thread
+import os  # Needed for Replit PORT
 
 # ====== Define timezone ======
 IST = pytz.timezone('Asia/Kolkata')
@@ -17,9 +18,11 @@ def home():
     return "Bot is running ✅"
 
 def run_flask():
-    app.run(host="0.0.0.0", port=3000)
+    # Use Replit's PORT environment variable; fallback to 3000
+    port = int(os.environ.get("PORT", 3000))
+    app.run(host="0.0.0.0", port=port)
 
-# Run Flask in a separate thread
+# Start Flask in a separate thread
 Thread(target=run_flask).start()
 
 # ====== Function to run main.py ======
@@ -34,10 +37,10 @@ def run_main():
 # ====== Setup scheduler ======
 scheduler = BlockingScheduler(timezone=IST)
 
-# Schedule daily at 8:30 AM IST
-scheduler.add_job(run_main, 'cron', hour=22, minute=24)
+# Schedule daily at 22:30 AM IST
+scheduler.add_job(run_main, 'cron', hour=22, minute=30)
 
-print("⏳ Scheduler started. Waiting for 10:24 AM IST daily...")
+print("⏳ Scheduler started. Waiting for 8:30 AM IST daily...")
 
 # Start the scheduler (this will keep the Repl running)
 scheduler.start()
