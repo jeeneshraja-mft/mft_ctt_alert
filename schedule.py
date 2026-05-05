@@ -1,24 +1,28 @@
 # schedule.py
-from datetime import datetime, timedelta
-from time import sleep
-from main import main  # Import your main.py's main function
+from apscheduler.schedulers.blocking import BlockingScheduler
+from main import main
+from datetime import datetime
+import pytz
 
-def schedule_run(minutes_from_now=10):
-    # Calculate the run time
-    run_time = datetime.now() + timedelta(minutes=minutes_from_now)
-    print(f"⏳ Script scheduled to run at: {run_time.strftime('%Y-%m-%d %H:%M:%S')}")
+# ====== Define timezone ======
+IST = pytz.timezone('Asia/Kolkata')
 
-    # Calculate delay in seconds
-    delay = (run_time - datetime.now()).total_seconds()
-    if delay > 0:
-        sleep(delay)
-
-    print(f"🚀 Running main script now: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+# ====== Function to run main.py ======
+def run_main():
+    print(f"🚀 Running main script at {datetime.now(IST).strftime('%Y-%m-%d %H:%M:%S')} IST")
     try:
         main()
         print("✅ Main script executed successfully!")
     except Exception as e:
         print("❌ Error during main script execution:", e)
 
-if __name__ == "__main__":
-    schedule_run(1)  # Schedule 10 minutes from now
+# ====== Setup scheduler ======
+scheduler = BlockingScheduler(timezone=IST)
+
+# Schedule daily at 8:15 PM IST
+scheduler.add_job(run_main, 'cron', hour=20, minute=15)
+
+print("⏳ Scheduler started. Waiting for 8:15 PM IST daily...")
+
+# Start the scheduler (this will keep the Repl running)
+scheduler.start()
