@@ -111,4 +111,4 @@ def start_bot():
 # ▶️ ENTRY POINT
 # =========================
 if __name__ == "__main__":
-    start_bot()
+    run_full_strategy()
