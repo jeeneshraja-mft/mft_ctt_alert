@@ -1,0 +1,6 @@
+kiteconnect
+pandas
+psycopg2-binary
+requests
+apscheduler
+pytz
