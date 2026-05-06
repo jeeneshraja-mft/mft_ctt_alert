@@ -8,38 +8,40 @@ def mround(value, base=1):
     return round(value / base) * base
 
 
-# ---------- Get Latest GOLD Contract (ROBUST) ----------
-def get_latest_goldten_token(kite: KiteConnect):
+# ---------- Get Latest Contract ----------
+def get_latest_silver_token(kite: KiteConnect):
     mcx_instruments = kite.instruments("MCX")
 
     today = date.today()
-
     valid_contracts = []
 
     for inst in mcx_instruments:
         ts = inst["tradingsymbol"]
 
-        # ✅ STRICT FILTER
-        if ts.startswith("GOLDTEN") and inst["segment"] == "MCX-FUT":
+        if inst["segment"] == "MCX-FUT" and ts.startswith(("SILVERMIC", "SILVERM")):
             expiry = inst["expiry"]
 
-            # ✅ ONLY FUTURE CONTRACTS
             if expiry and expiry >= today:
                 valid_contracts.append(inst)
 
     if not valid_contracts:
-        raise Exception("❌ No active GOLDTEN contracts found")
+        raise Exception("❌ No active SILVERMIC/SILVERM contracts found")
 
-    # ✅ Pick nearest expiry (correct contract)
-    selected = sorted(valid_contracts, key=lambda x: x["expiry"])[0]
+    # Prefer SILVERMIC first
+    silvermic = [x for x in valid_contracts if x["tradingsymbol"].startswith("SILVERMIC")]
 
-    print(f"✅ Using GOLDTEN contract: {selected['tradingsymbol']} (Expiry: {selected['expiry']})")
+    if silvermic:
+        selected = sorted(silvermic, key=lambda x: x["expiry"])[0]
+    else:
+        selected = sorted(valid_contracts, key=lambda x: x["expiry"])[0]
+
+    print(f"✅ Using SILVER contract: {selected['tradingsymbol']} (Expiry: {selected['expiry']})")
 
     return selected["instrument_token"], selected["tradingsymbol"]
 
 # ---------- Strategy Function ----------
-def fetch_strategy_levels(kite: KiteConnect):
-    instrument_token, tradingsymbol = get_latest_goldten_token(kite)
+def fetch_silver_strategy_levels(kite: KiteConnect):
+    instrument_token, tradingsymbol = get_latest_silver_token(kite)
 
     to_date = date.today()
     from_date = to_date - timedelta(days=10)
@@ -56,7 +58,6 @@ def fetch_strategy_levels(kite: KiteConnect):
     if df.empty:
         raise Exception("❌ No historical data found")
 
-    # Exclude today's candle
     df["date"] = pd.to_datetime(df["date"]).dt.date
     today = date.today()
     df = df[df["date"] < today]
@@ -64,7 +65,6 @@ def fetch_strategy_levels(kite: KiteConnect):
     if len(df) < 4:
         raise Exception("❌ Not enough historical candles")
 
-    # Sort latest first
     df = df.sort_values(by="date", ascending=False)
 
     # ---------- Last 4 Days ----------
@@ -77,57 +77,26 @@ def fetch_strategy_levels(kite: KiteConnect):
     c = last2["high"].max()
     d = last2["low"].min()
 
-    # =========================
-    # BUY
-    # =========================
+    # BUY (2%)
     buy_entry = mround(a * (1 + 0.0012), 1)
-    buy_target = mround(buy_entry * (1 + 0.015), 1)
+    buy_target = mround(buy_entry * (1 + 0.02), 1)
 
-    buy_sl1 = mround(
-        max(
-            buy_entry * (1 - 0.015),
-            d * (1 - 0.0012)
-        ),
-        1
-    )
-
-    buy_sl2 = mround(
-        max(
-            buy_entry * (1 - 0.015),
-            b * (1 - 0.0012)
-        ),
-        1
-    )
+    buy_sl1 = mround(max(buy_entry * (1 - 0.02), d * (1 - 0.0012)), 1)
+    buy_sl2 = mround(max(buy_entry * (1 - 0.02), b * (1 - 0.0012)), 1)
 
     buy_diff = buy_target - buy_entry
     buy_target2 = mround(buy_entry + (buy_diff * 3), 1)
 
-    # =========================
-    # SELL
-    # =========================
+    # SELL (2%)
     sell_entry = mround(b * (1 - 0.0012), 1)
-    sell_target = mround(sell_entry * (1 - 0.015), 1)
+    sell_target = mround(sell_entry * (1 - 0.02), 1)
 
-    sell_sl1 = mround(
-        min(
-            sell_entry * (1 + 0.015),
-            c * (1 + 0.0012)
-        ),
-        1
-    )
-
-    sell_sl2 = mround(
-        min(
-            sell_entry * (1 + 0.015),
-            a * (1 + 0.0012)
-        ),
-        1
-    )
+    sell_sl1 = mround(min(sell_entry * (1 + 0.02), c * (1 + 0.0012)), 1)
+    sell_sl2 = mround(min(sell_entry * (1 + 0.02), a * (1 + 0.0012)), 1)
 
     sell_diff = sell_entry - sell_target
     sell_target2 = mround(sell_entry - (sell_diff * 3), 1)
 
-    # ---------- Return ----------
     return {
         "tradingsymbol": tradingsymbol,
         "strategy_date": date.today(),

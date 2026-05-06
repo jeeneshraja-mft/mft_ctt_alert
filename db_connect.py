@@ -1,73 +1,167 @@
 import psycopg2
-from datetime import datetime
-from config import SUPABASE_DSN
 from datetime import datetime, timezone
+from config import SUPABASE_DSN
 
-# ---- Kite token functions ----
+
+# =========================================
+# 🔐 KITE TOKEN FUNCTIONS
+# =========================================
+
 def save_token(access_token, expiry):
-    conn = psycopg2.connect(SUPABASE_DSN)
-    cur = conn.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS kite_tokens (
-            id SERIAL PRIMARY KEY,
-            access_token TEXT NOT NULL,
-            expiry TIMESTAMPTZ NOT NULL,
-            created_at TIMESTAMPTZ DEFAULT now()
-        );
-    """)
-    cur.execute("""
-        INSERT INTO kite_tokens (access_token, expiry)
-        VALUES (%s, %s)
-    """, (access_token, expiry))
-    conn.commit()
-    cur.close()
-    conn.close()
+    conn = None
+    cur = None
+
+    try:
+        conn = psycopg2.connect(SUPABASE_DSN)
+        cur = conn.cursor()
+
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS kite_tokens (
+                id SERIAL PRIMARY KEY,
+                access_token TEXT NOT NULL,
+                expiry TIMESTAMPTZ NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT now()
+            );
+        """)
+
+        cur.execute("""
+            INSERT INTO kite_tokens (access_token, expiry)
+            VALUES (%s, %s)
+        """, (access_token, expiry))
+
+        conn.commit()
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"❌ Error saving token: {e}")
+        raise
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
 
 def load_token():
-    conn = psycopg2.connect(SUPABASE_DSN)
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT access_token, expiry
-        FROM kite_tokens
-        ORDER BY id DESC
-        LIMIT 1
-    """)
-    row = cur.fetchone()
-    cur.close()
-    conn.close()
-    if row:
-        return row[0], row[1]
-    return None, None
+    conn = None
+    cur = None
+
+    try:
+        conn = psycopg2.connect(SUPABASE_DSN)
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT access_token, expiry
+            FROM kite_tokens
+            ORDER BY id DESC
+            LIMIT 1
+        """)
+
+        row = cur.fetchone()
+        return row if row else (None, None)
+
+    except Exception as e:
+        print(f"❌ Error loading token: {e}")
+        return None, None
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
 
 def is_token_valid(expiry):
-    """
-    Checks if the Kite access token is still valid.
-    expiry: datetime object from DB (timezone-aware)
-    """
     if not expiry:
         return False
-    # Convert current UTC time to timezone-aware datetime
     now_utc = datetime.now(timezone.utc)
     return expiry > now_utc
 
-# ---- Gold price storage ----
-def insert_price(tradingsymbol, high_price, alert_date):
-    high_price = float(high_price)  # convert numpy types to float
-    conn = psycopg2.connect(SUPABASE_DSN)
-    cur = conn.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS gold_prices (
-            id SERIAL PRIMARY KEY,
-            tradingsymbol TEXT NOT NULL,
-            high_price NUMERIC NOT NULL,
-            alert_date DATE NOT NULL,
-            created_at TIMESTAMPTZ DEFAULT now()
-        );
-    """)
-    cur.execute("""
-        INSERT INTO gold_prices (tradingsymbol, high_price, alert_date)
-        VALUES (%s, %s, %s)
-    """, (tradingsymbol, high_price, alert_date))
-    conn.commit()
-    cur.close()
-    conn.close()
+
+# =========================================
+# 📊 STRATEGY STORAGE (GOLD + SILVER)
+# =========================================
+
+def insert_strategy_levels(data: dict):
+    conn = None
+    cur = None
+
+    try:
+        conn = psycopg2.connect(SUPABASE_DSN)
+        cur = conn.cursor()
+
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS strategy_levels (
+                id SERIAL PRIMARY KEY,
+                tradingsymbol TEXT NOT NULL,
+                strategy_date DATE NOT NULL,
+
+                a_last4_high NUMERIC,
+                b_last4_low NUMERIC,
+                c_last2_high NUMERIC,
+                d_last2_low NUMERIC,
+
+                buy_entry NUMERIC,
+                buy_target1 NUMERIC,
+                buy_target2 NUMERIC,
+                buy_sl1 NUMERIC,
+                buy_sl2 NUMERIC,
+
+                sell_entry NUMERIC,
+                sell_target1 NUMERIC,
+                sell_target2 NUMERIC,
+                sell_sl1 NUMERIC,
+                sell_sl2 NUMERIC,
+
+                created_at TIMESTAMPTZ DEFAULT now(),
+
+                UNIQUE(tradingsymbol, strategy_date)
+            );
+        """)
+
+        cur.execute("""
+            INSERT INTO strategy_levels (
+                tradingsymbol, strategy_date,
+                a_last4_high, b_last4_low, c_last2_high, d_last2_low,
+                buy_entry, buy_target1, buy_target2, buy_sl1, buy_sl2,
+                sell_entry, sell_target1, sell_target2, sell_sl1, sell_sl2
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (tradingsymbol, strategy_date) DO NOTHING
+        """, (
+            data["tradingsymbol"],
+            data["strategy_date"],
+
+            float(data["a_last4_high"]),
+            float(data["b_last4_low"]),
+            float(data["c_last2_high"]),
+            float(data["d_last2_low"]),
+
+            float(data["buy_entry"]),
+            float(data["buy_target"]),
+            float(data["buy_target2"]),
+            float(data["buy_sl1"]),
+            float(data["buy_sl2"]),
+
+            float(data["sell_entry"]),
+            float(data["sell_target"]),
+            float(data["sell_target2"]),
+            float(data["sell_sl1"]),
+            float(data["sell_sl2"])
+        ))
+
+        conn.commit()
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"❌ DB Insert Error: {e}")
+        raise
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()

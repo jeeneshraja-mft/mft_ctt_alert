@@ -12,6 +12,7 @@ SUPABASE_DSN = "postgresql://postgres.nqxtoltiqyeouqcndqfb:MFT_CTT_123$@aws-1-ap
 
 # ====== Trading Symbol ======
 TRADINGSYMBOL = "GOLDTEN26MAYFUT"
+SILVERMIC_TRADINGSYMBOL = "SILVERMIC30JUNFUT"
 
 # Local server port
 PORT = 8000
