@@ -15,6 +15,7 @@ def save_token(access_token, expiry):
         conn = psycopg2.connect(SUPABASE_DSN)
         cur = conn.cursor()
 
+        # Create table if not exists
         cur.execute("""
             CREATE TABLE IF NOT EXISTS kite_tokens (
                 id SERIAL PRIMARY KEY,
@@ -24,6 +25,7 @@ def save_token(access_token, expiry):
             );
         """)
 
+        # Insert new token
         cur.execute("""
             INSERT INTO kite_tokens (access_token, expiry)
             VALUES (%s, %s)
@@ -44,6 +46,10 @@ def save_token(access_token, expiry):
             conn.close()
 
 
+# =========================================
+# 🔥 FIXED: LOAD LATEST TOKEN (IMPORTANT)
+# =========================================
+
 def load_token():
     conn = None
     cur = None
@@ -52,15 +58,20 @@ def load_token():
         conn = psycopg2.connect(SUPABASE_DSN)
         cur = conn.cursor()
 
+        # 🔥 ALWAYS fetch latest token
         cur.execute("""
             SELECT access_token, expiry
             FROM kite_tokens
-            ORDER BY id DESC
+            ORDER BY created_at DESC
             LIMIT 1
         """)
 
         row = cur.fetchone()
-        return row if row else (None, None)
+
+        if not row:
+            return None, None
+
+        return row[0], row[1]
 
     except Exception as e:
         print(f"❌ Error loading token: {e}")
@@ -73,11 +84,19 @@ def load_token():
             conn.close()
 
 
+# =========================================
+# 📊 TOKEN VALIDATION
+# =========================================
+
 def is_token_valid(expiry):
     if not expiry:
         return False
-    now_utc = datetime.now(timezone.utc)
-    return expiry > now_utc
+
+    try:
+        now_utc = datetime.now(timezone.utc)
+        return expiry > now_utc
+    except:
+        return False
 
 
 # =========================================
