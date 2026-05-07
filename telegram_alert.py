@@ -6,23 +6,19 @@ from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 # =========================================
 # 📤 SEND TELEGRAM MESSAGE
 # =========================================
-def send_telegram_message(message):
+def send_telegram_message(message, parse_mode="HTML"):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
 
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
         "text": message,
-        "parse_mode": "HTML"
+        "parse_mode": parse_mode,
+        "disable_web_page_preview": True
     }
 
     try:
-        response = requests.post(url, data=payload)
-
-        if response.status_code == 200:
-            print("✅ Sent message to Telegram")
-        else:
-            print(f"❌ Telegram send failed: {response.text}")
-
+        requests.post(url, data=payload)
+        print("✅ Sent message to Telegram")
     except Exception as e:
         print("❌ Failed to send Telegram message:", e)
 
