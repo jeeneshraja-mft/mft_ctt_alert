@@ -149,3 +149,7 @@ def fetch_strategy_levels(kite: KiteConnect):
         "sell_sl1": sell_sl1,
         "sell_sl2": sell_sl2
     }
+
+# ---------- MAIN ENTRY POINT (for main.py) ----------
+def calculate_gold_strategy(kite):
+    return fetch_strategy_levels(kite)

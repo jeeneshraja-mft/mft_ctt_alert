@@ -118,3 +118,7 @@ def fetch_silver_strategy_levels(kite: KiteConnect):
         "sell_sl1": sell_sl1,
         "sell_sl2": sell_sl2
     }
+
+# ---------- MAIN ENTRY POINT ----------
+def calculate_silver_strategy(kite):
+    return fetch_silver_strategy_levels(kite)
