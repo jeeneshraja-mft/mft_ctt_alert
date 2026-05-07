@@ -6,10 +6,32 @@ from gold_price import calculate_gold_strategy
 from silver_price import calculate_silver_strategy
 from db_connect import load_token, is_token_valid
 from config import TELEGRAM_BOT_TOKEN
+from telegram_alert import send_telegram_message
 
 
-# ---------- FORMAT ----------
-def format_message(data, title="📊"):
+# ---------------- LOGIN LINK ----------------
+def send_login_link():
+    from kiteconnect import KiteConnect
+    from config import API_KEY
+
+    kite = KiteConnect(api_key=API_KEY)
+    login_url = kite.login_url()
+
+    msg = f"""
+🔐 <b>Kite Login Required</b>
+
+Session expired.
+
+👉 <a href="{login_url}">Click here to login</a>
+
+After login, bot will resume automatically.
+"""
+
+    send_telegram_message(msg)
+
+
+# ---------------- FORMAT MESSAGE ----------------
+def format_message(data, title):
     return f"""
 {title} <b>{data['tradingsymbol']} Strategy</b>
 
@@ -29,54 +51,67 @@ SL2: {data['sell_sl2']}
 """
 
 
-# ---------- /RUN ----------
+# ---------------- /RUN ----------------
 async def run_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    access_token, expiry = load_token()
-
-    if not access_token or not is_token_valid(expiry):
-        await update.message.reply_text("❌ Token expired. Please login via Telegram link.")
-        return
-
     kite = get_kite_instance()
+
+    if kite is None:
+        send_login_link()
+        await update.message.reply_text("❌ Token expired. Login link sent.")
+        return
 
     gold = calculate_gold_strategy(kite)
     silver = calculate_silver_strategy(kite)
 
     await update.message.reply_text("🚀 Running full strategy...")
 
-    await update.message.reply_text(format_message(gold, "🟡 GOLD"))
-    await update.message.reply_text(format_message(silver, "⚪ SILVER"))
+    send_telegram_message(format_message(gold, "🟡 GOLD"))
+    send_telegram_message(format_message(silver, "⚪ SILVER"))
 
 
-# ---------- /GOLD ----------
+# ---------------- /GOLD ----------------
 async def gold_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kite = get_kite_instance()
+
+    if kite is None:
+        send_login_link()
+        await update.message.reply_text("❌ Token expired. Login link sent.")
+        return
+
     gold = calculate_gold_strategy(kite)
+    send_telegram_message(format_message(gold, "🟡 GOLD"))
 
-    await update.message.reply_text(format_message(gold, "🟡 GOLD"))
+    await update.message.reply_text("✅ Gold sent")
 
 
-# ---------- /SILVER ----------
+# ---------------- /SILVER ----------------
 async def silver_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kite = get_kite_instance()
+
+    if kite is None:
+        send_login_link()
+        await update.message.reply_text("❌ Token expired. Login link sent.")
+        return
+
     silver = calculate_silver_strategy(kite)
+    send_telegram_message(format_message(silver, "⚪ SILVER"))
 
-    await update.message.reply_text(format_message(silver, "⚪ SILVER"))
+    await update.message.reply_text("✅ Silver sent")
 
 
-# ---------- /STATUS ----------
+# ---------------- /STATUS ----------------
 async def status_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     access_token, expiry = load_token()
 
     if access_token and is_token_valid(expiry):
-        msg = "🟢 Bot is ACTIVE\nToken is valid"
+        msg = "🟢 Bot ACTIVE\nToken valid"
     else:
-        msg = "🔴 Bot is INACTIVE\nToken expired or missing"
+        msg = "🔴 Bot INACTIVE\nToken expired or missing"
 
     await update.message.reply_text(msg)
 
 
-# ---------- START BOT ----------
+# ---------------- START BOT ----------------
 def start_bot():
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
