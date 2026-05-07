@@ -3,6 +3,7 @@ from gold_price import calculate_gold_strategy
 from silver_price import calculate_silver_strategy
 from telegram_alert import send_telegram_message
 from db_connect import load_token, is_token_valid
+from telegram_bot import start_bot
 
 
 # ---------- FORMAT MESSAGE ----------
@@ -76,4 +77,4 @@ def run():
 
 # ---------- ENTRY POINT ----------
 if __name__ == "__main__":
-    run()
+    start_bot()
