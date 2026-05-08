@@ -15,7 +15,7 @@ def send_login_link():
     from config import API_KEY
 
     kite = KiteConnect(api_key=API_KEY)
-    login_url = kite.login_url()
+    login_url = "https://kite-token-server.onrender.com/login"
 
     msg = f"""
 🔐 <b>Kite Login Required</b>

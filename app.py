@@ -1,6 +1,7 @@
 from flask import Flask, request
 from kiteconnect import KiteConnect
 from datetime import datetime
+from datetime import timedelta
 
 from config import API_KEY, API_SECRET
 from db_connect import save_token
@@ -36,7 +37,7 @@ def callback():
         data = kite.generate_session(request_token, api_secret=API_SECRET)
         access_token = data["access_token"]
 
-        expiry = datetime.utcnow()
+        expiry = datetime.utcnow() + timedelta(hours=23)
 
         # Save to DB
         save_token(access_token, expiry)
