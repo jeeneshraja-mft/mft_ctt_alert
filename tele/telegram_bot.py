@@ -1,125 +1,108 @@
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, ContextTypes
 
-from brokers.kite_connect import get_kite_instance
+from brokers.kite_connect import get_kite_instance, generate_login_url
 from strategies.gold_price import calculate_gold_strategy
 from strategies.silver_price import calculate_silver_strategy
-from database.db_connect import load_token, is_token_valid
-from config.config import TELEGRAM_BOT_TOKEN
 from tele.telegram_alert import send_telegram_message
+from config.config import TELEGRAM_BOT_TOKEN
 
 
-# ---------------- LOGIN LINK ----------------
-def send_login_link():
-    from kiteconnect import KiteConnect
-    from config import API_KEY
-
-    kite = KiteConnect(api_key=API_KEY)
-    login_url = "https://kite-token-server.onrender.com/login"
-
-    msg = f"""
-🔐 <b>Kite Login Required</b>
-
-Session expired.
-
-👉 <a href="{login_url}">Click here to login</a>
-
-After login, bot will resume automatically.
-"""
-
-    send_telegram_message(msg)
-
-
-# ---------------- FORMAT MESSAGE ----------------
+# =========================================
+# FORMAT MESSAGE
+# =========================================
 def format_message(data, title):
-    return f"""
-{title} <b>{data['tradingsymbol']} Strategy</b>
+    if "error" in data:
+        return f"{title}\n❌ Error: {data['error']}"
+    return f"""{title}
+Symbol: {data['tradingsymbol']}
 
-🟢 BUY
-Entry: {data['buy_entry']}
-Target1: {data['buy_target']}
-Target2: {data['buy_target2']}
-SL1: {data['buy_sl1']}
-SL2: {data['buy_sl2']}
+BUY ENTRY: {data['buy_entry']}
+BUY TARGET 1: {data['buy_target']}
+BUY TARGET 2: {data['buy_target2']}
+BUY SL1: {data['buy_sl1']}
+BUY SL2: {data['buy_sl2']}
 
-🔴 SELL
-Entry: {data['sell_entry']}
-Target1: {data['sell_target']}
-Target2: {data['sell_target2']}
-SL1: {data['sell_sl1']}
-SL2: {data['sell_sl2']}
-"""
+SELL ENTRY: {data['sell_entry']}
+SELL TARGET 1: {data['sell_target']}
+SELL TARGET 2: {data['sell_target2']}
+SELL SL1: {data['sell_sl1']}
+SELL SL2: {data['sell_sl2']}"""
 
 
-# ---------------- /RUN ----------------
-async def run_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# =========================================
+# LOGIN LINK
+# =========================================
+def send_login_link():
+    login_url = generate_login_url()
+    send_telegram_message(f"🔐 Kite Login Required\n\n{login_url}")
+    print("📨 Login link sent to Telegram")
+
+
+# =========================================
+# COMMANDS
+# =========================================
+async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("✅ Stock Alert Bot Running")
+
+async def gold_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kite = get_kite_instance()
-
-    if kite is None:
+    if not kite:
+        await update.message.reply_text("❌ Kite login expired")
         send_login_link()
-        await update.message.reply_text("❌ Token expired. Login link sent.")
         return
+    try:
+        gold = calculate_gold_strategy(kite)
+        await update.message.reply_text(format_message(gold, "🟡 GOLD"))
+    except Exception as e:
+        await update.message.reply_text(f"❌ Gold strategy error: {e}")
 
-    gold = calculate_gold_strategy(kite)
-    silver = calculate_silver_strategy(kite)
-
-    await update.message.reply_text("🚀 Running full strategy...")
-
-    send_telegram_message(format_message(gold, "🟡 GOLD"))
-    send_telegram_message(format_message(silver, "⚪ SILVER"))
-
-
-# ---------------- /GOLD ----------------
-async def gold_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def silver_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kite = get_kite_instance()
-
-    if kite is None:
+    if not kite:
+        await update.message.reply_text("❌ Kite login expired")
         send_login_link()
-        await update.message.reply_text("❌ Token expired. Login link sent.")
         return
+    try:
+        silver = calculate_silver_strategy(kite)
+        await update.message.reply_text(format_message(silver, "⚪ SILVER"))
+    except Exception as e:
+        await update.message.reply_text(f"❌ Silver strategy error: {e}")
 
-    gold = calculate_gold_strategy(kite)
-    send_telegram_message(format_message(gold, "🟡 GOLD"))
-
-    await update.message.reply_text("✅ Gold sent")
-
-
-# ---------------- /SILVER ----------------
-async def silver_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def run_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kite = get_kite_instance()
-
-    if kite is None:
+    if not kite:
+        await update.message.reply_text("❌ Kite login expired")
         send_login_link()
-        await update.message.reply_text("❌ Token expired. Login link sent.")
         return
-
-    silver = calculate_silver_strategy(kite)
-    send_telegram_message(format_message(silver, "⚪ SILVER"))
-
-    await update.message.reply_text("✅ Silver sent")
-
-
-# ---------------- /STATUS ----------------
-async def status_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    access_token, expiry = load_token()
-
-    if access_token and is_token_valid(expiry):
-        msg = "🟢 Bot ACTIVE\nToken valid"
-    else:
-        msg = "🔴 Bot INACTIVE\nToken expired or missing"
-
-    await update.message.reply_text(msg)
+    try:
+        gold = calculate_gold_strategy(kite)
+        silver = calculate_silver_strategy(kite)
+        await update.message.reply_text(format_message(gold, "🟡 GOLD"))
+        await update.message.reply_text(format_message(silver, "⚪ SILVER"))
+    except Exception as e:
+        await update.message.reply_text(f"❌ Strategy run error: {e}")
 
 
-# ---------------- START BOT ----------------
+# =========================================
+# ERROR HANDLER
+# =========================================
+async def error_handler(update, context):
+    print(f"⚠️ Error: {context.error}")
+    if update and update.message:
+        await update.message.reply_text("❌ An error occurred")
+
+
+# =========================================
+# START BOT
+# =========================================
 def start_bot():
-    app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
-
-    app.add_handler(CommandHandler("run", run_cmd))
-    app.add_handler(CommandHandler("gold", gold_cmd))
-    app.add_handler(CommandHandler("silver", silver_cmd))
-    app.add_handler(CommandHandler("status", status_cmd))
+    app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    app.add_handler(CommandHandler("status", status_command))
+    app.add_handler(CommandHandler("gold", gold_command))
+    app.add_handler(CommandHandler("silver", silver_command))
+    app.add_handler(CommandHandler("run", run_command))
+    app.add_error_handler(error_handler)
 
     print("🤖 Telegram bot running...")
-
-    app.run_polling()
+    app.run_polling(drop_pending_updates=True)

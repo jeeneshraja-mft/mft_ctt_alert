@@ -1,5 +1,76 @@
-from tele.telegram_bot import start_bot
+from flask import Flask, request
+from threading import Thread
 
+from brokers.kite_connect import get_kite_instance, generate_kite_session
+from database.db_connect import save_token
+from tele.telegram_bot import start_bot, send_login_link, format_message
+from tele.telegram_alert import send_telegram_message
+from strategies.gold_price import calculate_gold_strategy
+from strategies.silver_price import calculate_silver_strategy
 
+app = Flask(__name__)
+
+# =========================================
+# STRATEGY
+# =========================================
+def run_strategy():
+    print("🚀 Running strategy")
+    kite = get_kite_instance()
+    if not kite:
+        print("❌ Invalid Kite session")
+        send_login_link()
+        return
+
+    print("✅ Kite login valid")
+    try:
+        print("🟡 Calculating GOLD")
+        gold = calculate_gold_strategy(kite)
+        print("⚪ Calculating SILVER")
+        silver = calculate_silver_strategy(kite)
+
+        send_telegram_message(format_message(gold, "🟡 GOLD"))
+        send_telegram_message(format_message(silver, "⚪ SILVER"))
+        print("✅ Strategy alerts sent")
+    except Exception as e:
+        print(f"❌ Strategy error: {e}")
+        send_telegram_message(f"❌ Strategy error: {e}")
+
+# =========================================
+# ROUTES
+# =========================================
+@app.route("/")
+def home():
+    return "✅ Stock Alert App Running"
+
+@app.route("/callback")
+def callback():
+    request_token = request.args.get("request_token")
+    try:
+        access_token = generate_kite_session(request_token)
+        save_token(access_token)
+        send_telegram_message("✅ Kite login successful")
+        Thread(target=run_strategy).start()
+        return "<h2>✅ Login Successful</h2><h3>You can close this window</h3>"
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
+
+# =========================================
+# MAIN
+# =========================================
 if __name__ == "__main__":
-    start_bot()
+    print("🚀 Starting Stock Alert App")
+
+    # Start bot in background
+    Thread(target=start_bot, daemon=True).start()
+
+    # Check token immediately
+    kite = get_kite_instance()
+    if kite:
+        # Token valid → run strategy now
+        Thread(target=run_strategy).start()
+    else:
+        # Token invalid → send login link
+        send_login_link()
+
+    # Start Flask
+    app.run(host="0.0.0.0", port=10000, use_reloader=False)

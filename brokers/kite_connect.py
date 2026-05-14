@@ -1,30 +1,55 @@
 from kiteconnect import KiteConnect
-from config.config import API_KEY
+
+from config.config import API_KEY, API_SECRET
 from database.db_connect import load_token
 
 
+# =========================================
+# GET KITE INSTANCE
+# =========================================
+
 def get_kite_instance():
-    kite = KiteConnect(api_key=API_KEY)
+    access_token = load_token()
 
-    access_token, expiry = load_token()
-
-    print("DEBUG access_token:", access_token)
-    print("DEBUG expiry:", expiry)
-
-    # ❌ DO NOT validate expiry anymore
     if not access_token:
-        print("❌ No access token in DB")
+        print("❌ No access token found")
         return None
 
     try:
+        kite = KiteConnect(api_key=API_KEY)
         kite.set_access_token(access_token)
 
-        # 🔥 TEST CALL (IMPORTANT)
+        # Validate session
         kite.profile()
 
-        print("🟢 Kite authentication SUCCESS")
+        print("✅ Kite session valid")
+
         return kite
 
     except Exception as e:
-        print("❌ Kite auth failed:", e)
+        print(f"❌ Invalid Kite session: {e}")
         return None
+
+
+# =========================================
+# GENERATE LOGIN URL
+# =========================================
+
+def generate_login_url():
+    kite = KiteConnect(api_key=API_KEY)
+    return kite.login_url()
+
+
+# =========================================
+# GENERATE ACCESS TOKEN
+# =========================================
+
+def generate_kite_session(request_token):
+    kite = KiteConnect(api_key=API_KEY)
+
+    data = kite.generate_session(
+        request_token,
+        api_secret=API_SECRET
+    )
+
+    return data["access_token"]
