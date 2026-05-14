@@ -1,12 +1,12 @@
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-from kite_connect import get_kite_instance
-from gold_price import calculate_gold_strategy
-from silver_price import calculate_silver_strategy
-from db_connect import load_token, is_token_valid
-from config import TELEGRAM_BOT_TOKEN
-from telegram_alert import send_telegram_message
+from brokers.kite_connect import get_kite_instance
+from strategies.gold_price import calculate_gold_strategy
+from strategies.silver_price import calculate_silver_strategy
+from database.db_connect import load_token, is_token_valid
+from config.config import TELEGRAM_BOT_TOKEN
+from tele.telegram_alert import send_telegram_message
 
 
 # ---------------- LOGIN LINK ----------------

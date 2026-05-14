@@ -1,6 +1,6 @@
 import psycopg2
 from datetime import datetime, timezone
-from config import SUPABASE_DSN
+from config.config import SUPABASE_DSN
 
 
 # =========================================

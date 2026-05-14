@@ -3,9 +3,9 @@ from kiteconnect import KiteConnect
 from datetime import datetime
 from datetime import timedelta
 
-from config import API_KEY, API_SECRET
-from db_connect import save_token
-from telegram_alert import send_telegram_message
+from config.config import API_KEY, API_SECRET
+from database.db_connect import save_token
+from tele.telegram_alert import send_telegram_message
 
 app = Flask(__name__)
 

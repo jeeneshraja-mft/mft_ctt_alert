@@ -1,8 +1,8 @@
-from kite_connect import get_kite_instance
-from gold_price import calculate_gold_strategy
-from silver_price import calculate_silver_strategy
-from telegram_alert import send_telegram_message
-from telegram_bot import send_login_link, format_message
+from brokers.kite_connect import get_kite_instance
+from strategies.gold_price import calculate_gold_strategy
+from strategies.silver_price import calculate_silver_strategy
+from tele.telegram_alert import send_telegram_message
+from tele.telegram_bot import send_login_link, format_message
 
 
 def run():

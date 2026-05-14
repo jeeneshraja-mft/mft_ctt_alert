@@ -1,6 +1,6 @@
 from kiteconnect import KiteConnect
-from config import API_KEY
-from db_connect import load_token
+from config.config import API_KEY
+from database.db_connect import load_token
 
 
 def get_kite_instance():
