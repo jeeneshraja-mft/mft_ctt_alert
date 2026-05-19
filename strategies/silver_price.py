@@ -1,7 +1,7 @@
 from kiteconnect import KiteConnect
 from datetime import date, timedelta
 import pandas as pd
-
+from database.db_connect import save_silver_strategy
 
 # ---------- Helper ----------
 def mround(value, base=1):
@@ -120,5 +120,12 @@ def fetch_silver_strategy_levels(kite: KiteConnect):
     }
 
 # ---------- MAIN ENTRY POINT ----------
+
 def calculate_silver_strategy(kite):
-    return fetch_silver_strategy_levels(kite)
+    data = fetch_silver_strategy_levels(kite)
+    changed = save_silver_strategy(data)
+    if changed:
+        print("📨 New silver strategy stored and will be alerted")
+    else:
+        print("📨 Silver strategy unchanged — only alert")
+    return data

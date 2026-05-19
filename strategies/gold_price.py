@@ -1,7 +1,7 @@
 from kiteconnect import KiteConnect
 from datetime import date, timedelta
 import pandas as pd
-
+from database.db_connect import save_gold_strategy
 
 # ---------- Helper ----------
 def mround(value, base=1):
@@ -151,5 +151,12 @@ def fetch_strategy_levels(kite: KiteConnect):
     }
 
 # ---------- MAIN ENTRY POINT (for main.py) ----------
+
 def calculate_gold_strategy(kite):
-    return fetch_strategy_levels(kite)
+    data = fetch_strategy_levels(kite)
+    changed = save_gold_strategy(data)
+    if changed:
+        print("📨 New gold strategy stored and will be alerted")
+    else:
+        print("📨 Gold strategy unchanged — only alert")
+    return data
