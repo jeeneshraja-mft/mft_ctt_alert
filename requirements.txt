@@ -6,3 +6,4 @@ apscheduler
 pytz
 flask
 python-telegram-bot==22.7
+gunicorn
