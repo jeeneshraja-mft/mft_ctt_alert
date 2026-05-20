@@ -1,8 +1,14 @@
+import os
+
 from kiteconnect import KiteConnect
 
-from config.config import API_KEY, API_SECRET
 from database.db_connect import load_token
+from dotenv import load_dotenv
 
+# Load environment variables from .env
+load_dotenv()
+API_KEY = os.getenv("KITE_API_KEY")
+API_SECRET = os.getenv("KITE_API_SECRET")
 
 # =========================================
 # GET KITE INSTANCE
