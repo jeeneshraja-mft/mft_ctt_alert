@@ -7,10 +7,9 @@ from tele.telegram_bot import start_bot, send_login_link, format_message
 from tele.telegram_alert import send_telegram_message
 from strategies.gold_price import calculate_gold_strategy
 from strategies.silver_price import calculate_silver_strategy
-from strategies.gold_gapupdown import start_gold_gapupdown   # <-- NEW IMPORT
+from strategies.gold_gapupdown import start_gold_gapupdown
 from strategies.silver_gapupdown import start_silver_gapupdown
 from strategies.nifty_options import start_nifty_options
-
 
 app = Flask(__name__)
 
@@ -56,11 +55,10 @@ def callback():
 
         # Run strategy + monitoring in background
         Thread(target=run_strategy).start()
-        Thread(target=start_gold_gapupdown, args=(False,), daemon=True).start()  # simulate=False for live
-        # In callback route:
+        Thread(target=start_gold_gapupdown, args=(False,), daemon=True).start()
         Thread(target=start_silver_gapupdown, args=(False,), daemon=True).start()
         Thread(target=start_nifty_options, daemon=True).start()
-       
+
         return "<h2>✅ Login Successful</h2><h3>You can close this window</h3>"
     except Exception as e:
         return f"❌ Error: {str(e)}"
@@ -71,8 +69,8 @@ def callback():
 if __name__ == "__main__":
     print("🚀 Starting Stock Alert App")
 
-    # Start bot in background
-    Thread(target=start_bot, daemon=True).start()
+    # ✅ Run Telegram bot in main thread (not inside Thread)
+    start_bot()
 
     # Check token immediately
     kite = get_kite_instance()
@@ -81,9 +79,7 @@ if __name__ == "__main__":
         Thread(target=start_gold_gapupdown, daemon=True).start()
         Thread(target=start_silver_gapupdown, daemon=True).start()
         Thread(target=start_nifty_options, daemon=True).start()
-
     else:
-        # Token invalid → send login link
         send_login_link()
 
     # Start Flask
