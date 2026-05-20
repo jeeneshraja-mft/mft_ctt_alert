@@ -1,5 +1,9 @@
+import os
 import requests, time
 from config.config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
