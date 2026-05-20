@@ -1,7 +1,6 @@
 import os
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
-
 from brokers.kite_connect import get_kite_instance, generate_login_url
 from strategies.gold_price import calculate_gold_strategy
 from strategies.silver_price import calculate_silver_strategy
@@ -12,7 +11,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-
 
 # =========================================
 # FORMAT MESSAGE
@@ -35,7 +33,6 @@ SELL TARGET 2: {data['sell_target2']}
 SELL SL1: {data['sell_sl1']}
 SELL SL2: {data['sell_sl2']}"""
 
-
 # =========================================
 # LOGIN LINK
 # =========================================
@@ -43,7 +40,6 @@ def send_login_link():
     login_url = generate_login_url()
     send_telegram_message(f"🔐 Kite Login Required\n\n{login_url}")
     print("📨 Login link sent to Telegram")
-
 
 # =========================================
 # COMMANDS
@@ -89,7 +85,6 @@ async def run_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"❌ Strategy run error: {e}")
 
-
 # =========================================
 # ERROR HANDLER
 # =========================================
@@ -98,11 +93,10 @@ async def error_handler(update, context):
     if update and update.message:
         await update.message.reply_text("❌ An error occurred")
 
-
 # =========================================
 # START BOT
 # =========================================
-def start_bot():
+def start_bot(use_signals=False):
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     app.add_handler(CommandHandler("status", status_command))
     app.add_handler(CommandHandler("gold", gold_command))
@@ -111,4 +105,5 @@ def start_bot():
     app.add_error_handler(error_handler)
 
     print("🤖 Telegram bot running...")
-    app.run_polling(drop_pending_updates=True)
+    # Disable signal handling when running in a thread
+    app.run_polling(drop_pending_updates=True, stop_signals=() if not use_signals else None)

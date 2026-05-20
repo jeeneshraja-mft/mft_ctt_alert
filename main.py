@@ -69,8 +69,8 @@ def callback():
 if __name__ == "__main__":
     print("🚀 Starting Stock Alert App")
 
-    # ✅ Run Telegram bot in main thread (not inside Thread)
-    start_bot()
+    # ✅ Start Telegram bot in background thread with signals disabled
+    Thread(target=lambda: start_bot(use_signals=False), daemon=True).start()
 
     # Check token immediately
     kite = get_kite_instance()
