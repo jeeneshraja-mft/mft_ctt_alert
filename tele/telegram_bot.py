@@ -1,3 +1,4 @@
+import os
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
@@ -5,7 +6,12 @@ from brokers.kite_connect import get_kite_instance, generate_login_url
 from strategies.gold_price import calculate_gold_strategy
 from strategies.silver_price import calculate_silver_strategy
 from tele.telegram_alert import send_telegram_message
-from config.config import TELEGRAM_BOT_TOKEN
+from dotenv import load_dotenv
+
+# Load environment variables from .env
+load_dotenv()
+
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 
 # =========================================
