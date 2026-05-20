@@ -1,8 +1,10 @@
 import psycopg2
+from dotenv import load_dotenv
 from config.config import SUPABASE_DSN
 
+load_dotenv()
 def save_token(access_token, expiry=None):
-    conn = psycopg2.connect(SUPABASE_DSN)
+    conn = psycopg2.connect(dsn=SUPABASE_DSN, sslmode="require")
     cur = conn.cursor()
 
     # Ensure table exists with expiry column
@@ -30,7 +32,7 @@ def save_token(access_token, expiry=None):
     conn.close()
 
 def load_token():
-    conn = psycopg2.connect(SUPABASE_DSN)
+    conn = psycopg2.connect(dsn=SUPABASE_DSN, sslmode="require")
     cur = conn.cursor()
 
     cur.execute("""
@@ -49,7 +51,7 @@ def load_token():
     return None
 
 def save_gold_strategy(data):
-    conn = psycopg2.connect(SUPABASE_DSN)
+    conn = psycopg2.connect(dsn=SUPABASE_DSN, sslmode="require")
     cur = conn.cursor()
 
     # Check if a record exists for today
@@ -108,7 +110,7 @@ def save_gold_strategy(data):
     return True
 
 def save_silver_strategy(data):
-    conn = psycopg2.connect(SUPABASE_DSN)
+    conn = psycopg2.connect(dsn=SUPABASE_DSN, sslmode="require")
     cur = conn.cursor()
 
     # Check if a record exists for today
