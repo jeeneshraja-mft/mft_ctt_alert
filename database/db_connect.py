@@ -1,9 +1,13 @@
+import os
 import psycopg2
 from dotenv import load_dotenv
-from config.config import SUPABASE_DSN
+
 
 load_dotenv()
+SUPABASE_DSN = os.getenv("SUPABASE_DSN")
+
 def save_token(access_token, expiry=None):
+    print("SUPABASE_DSN at runtime:", SUPABASE_DSN)
     conn = psycopg2.connect(dsn=SUPABASE_DSN, sslmode="require")
     cur = conn.cursor()
 
