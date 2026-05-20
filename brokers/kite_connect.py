@@ -7,8 +7,9 @@ from dotenv import load_dotenv
 
 # Load environment variables from .env
 load_dotenv()
-API_KEY = os.getenv("KITE_API_KEY")
-API_SECRET = os.getenv("KITE_API_SECRET")
+API_KEY = os.getenv("API_KEY")
+API_SECRET = os.getenv("API_SECRET")
+
 
 # =========================================
 # GET KITE INSTANCE
