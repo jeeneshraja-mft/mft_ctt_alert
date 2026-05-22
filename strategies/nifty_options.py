@@ -140,7 +140,7 @@ def calculate_nifty_options(kite, instrument_token):
 
     # Candidate strikes bounded correctly
     PE_strikes = list(range(PE_END, PE_END - 50*10, -50))
-    CE_strikes = list(range(CE_START, CE_END - 1, -50))  # from CE_START down to CE_END
+    CE_strikes = list(range(CE_END, CE_START + 50, 50))  # from CE_END up to CE_START
 
     print("PE strike list:", PE_strikes)
     print("CE strike list:", CE_strikes)
@@ -152,7 +152,7 @@ def calculate_nifty_options(kite, instrument_token):
 
     symbol_map = find_strikes_for_expiry(kite, expiry)
 
-    # Find eligible PE_TODAY
+    # Find eligible PE_TODAY with logs
     PE_TODAY, PE_TS = None, None
     for strike in PE_strikes:
         key = f"{strike}PE"
@@ -163,7 +163,7 @@ def calculate_nifty_options(kite, instrument_token):
                 PE_TODAY, PE_TS = strike, ts
                 break
 
-    # Find eligible CE_TODAY
+    # Find eligible CE_TODAY with logs
     CE_TODAY, CE_TS = None, None
     for strike in CE_strikes:
         key = f"{strike}CE"
@@ -183,14 +183,6 @@ def calculate_nifty_options(kite, instrument_token):
         f"CE_START: {CE_START}, CE_END: {CE_END}, CE_TODAY: {CE_TODAY} ({CE_TS if CE_TS else '-'})"
     )
 
-    return {
-        "expiry": expiry,
-        "PE_END": PE_END,
-        "PE_TODAY": PE_TODAY,
-        "CE_START": CE_START,
-        "CE_END": CE_END,
-        "CE_TODAY": CE_TODAY
-    }
 
 # ---------- Public entry point ----------
 def start_nifty_options():
