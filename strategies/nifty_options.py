@@ -205,6 +205,13 @@ def calculate_nifty_options(kite, instrument_token):
     else:
         send_telegram_message("❌ No eligible strikes found in current or next expiry")
 
+    levels = calculate_strategy_levels(kite, ts, token, strike, "CE")
+    print("CE Levels:")
+    print(levels)
+
+    levels = calculate_strategy_levels(kite, ts, token, strike, "PE")
+    print(levels)
+
 # ---------- Public entry point ----------
 def start_nifty_options():
     kite = get_kite_instance()
@@ -214,3 +221,49 @@ def start_nifty_options():
 
     instrument_token = 256265  # Nifty index token
     calculate_nifty_options(kite, instrument_token)
+
+# ---------- Strategy Calculation ----------
+def calculate_strategy_levels(kite, tradingsymbol, instrument_token, strike, option_type):
+    """
+    Calculate Entry, Target, and Stoploss levels for CE/PE based on last 2 days high/low.
+    option_type: "CE" or "PE"
+    """
+    today = datetime.today().date()
+    from_date = today - timedelta(days=5)
+
+    try:
+        # Load last 2 days data
+        data = kite.historical_data(instrument_token, from_date, today, "day")
+        df = pd.DataFrame(data)
+        df["date"] = pd.to_datetime(df["date"]).dt.date
+        df = df[df["date"] < today].sort_values(by="date", ascending=False)
+
+        if df.empty:
+            return None
+
+        # CE/PE High and Low
+        opt_high = df.head(2)["high"].max()
+        opt_low = df.head(2)["low"].max()
+
+        # Entry
+        entry = round(opt_low * (1 - 0.10) / 0.05) * 0.05
+        # Target
+        target = entry * (1 - 0.75)
+        # Stoploss candidates
+        sla = entry * (1 + 0.75)
+        slb = opt_high * (1 + 0.10)
+        stoploss = min(sla, slb)
+
+        result = {
+            "Option": f"{tradingsymbol} ({option_type})",
+            "High2d": opt_high,
+            "Low2d": opt_low,
+            "Entry": round(entry, 2),
+            "Target": round(target, 2),
+            "Stoploss": round(stoploss, 2)
+        }
+        return result
+
+    except Exception as e:
+        print(f"Strategy calculation failed for {tradingsymbol}: {e}")
+        return None
