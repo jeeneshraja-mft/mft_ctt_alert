@@ -84,7 +84,7 @@ def find_strikes_for_expiry(kite, expiry):
     return symbol_map
 
 # ---------- Strike Eligibility with Logs ----------
-def check_strike_eligibility(kite, tradingsymbol, instrument_token, strike, threshold_oi=32500):
+def check_strike_eligibility(kite, tradingsymbol, instrument_token, strike, threshold_oi=35000):
     today = datetime.today().date()
     from_date = today - timedelta(days=5)
 
@@ -103,8 +103,10 @@ def check_strike_eligibility(kite, tradingsymbol, instrument_token, strike, thre
         quote = kite.quote([f"NFO:{tradingsymbol}"])
         oi = quote[f"NFO:{tradingsymbol}"]["oi"]
 
-        # Return formatted string
-        return f"{tradingsymbol} => {threshold:.2f} (0.85%) => {low2} (2d low) => {oi} (OI)"
+        eligible = (oi >= threshold_oi) and (low2 > threshold)
+
+        status = "✅ Eligible" if eligible else "❌ Not Eligible"
+        return f"{tradingsymbol} => {threshold:.2f} (0.85%) => {low2} (2d low) => {oi} (OI) => {status}"
 
     except Exception as e:
         print(f"Eligibility check failed for {tradingsymbol}: {e}")
@@ -123,6 +125,7 @@ def calculate_nifty_options(kite, instrument_token):
 
     # Strike anchors
     PE_END = ceiling(AB, 50)   # nearest strike >= buffer high
+    PE_START = floor(B, 50)    # nearest strike <= 2d low
     CE_END = floor(BB, 50)     # nearest strike <= buffer low
     CE_START = ceiling(A, 50)  # nearest strike >= 2d high
 
@@ -133,12 +136,14 @@ def calculate_nifty_options(kite, instrument_token):
     print(f"\tBUFFER\tHigh {mround(AB)}")
     print(f"\tBuffer Low {mround(BB)}\n")
     print("Next strike selection to the buffer\n")
+    print(f"\tPut start strike\t{PE_START}")
     print(f"\tPut end strike\t{PE_END}")
+    print(f"\tCall start strike\t{CE_START}")
     print(f"\tCall end strike\t{CE_END}\n")
 
-    # Candidate strikes limited to 10
-    PE_strikes = [PE_END - i*50 for i in range(10)]
-    CE_strikes = [CE_END + i*50 for i in range(10)]
+    # Candidate strikes bounded correctly (limit to 10 from START to END)
+    PE_strikes = list(range(PE_END, PE_START - 50, -50))[:10]
+    CE_strikes = list(range(CE_END, CE_START + 50, 50))[:10]
 
     print("PE strike list:", PE_strikes)
     print("CE strike list:", CE_strikes)
@@ -149,7 +154,7 @@ def calculate_nifty_options(kite, instrument_token):
 
     symbol_map = find_strikes_for_expiry(kite, expiry)
 
-    # Loop through ALL PE strikes
+    # Loop through PE strikes
     for strike in PE_strikes:
         key = f"{strike}PE"
         if key in symbol_map:
@@ -159,7 +164,7 @@ def calculate_nifty_options(kite, instrument_token):
             if result:
                 print(result)
 
-    # Loop through ALL CE strikes
+    # Loop through CE strikes
     for strike in CE_strikes:
         key = f"{strike}CE"
         if key in symbol_map:
