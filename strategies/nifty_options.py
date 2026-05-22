@@ -123,12 +123,12 @@ def calculate_nifty_options(kite, instrument_token):
     AB = A * (1 + 0.0015)
     BB = B * (1 - 0.0015)
 
-    # Strike anchors (corrected)
-    PE_START = ceiling(B, 50)    # nearest strike >= 2d low
+    # ---------- Strike Anchors ----------
     PE_END   = ceiling(AB, 50)   # nearest strike >= buffer high
+    PE_START = PE_END - (50 * 9) # derive start by stepping back 9 strikes
 
-    CE_START = floor(A, 50)      # nearest strike <= 2d high
     CE_END   = floor(BB, 50)     # nearest strike <= buffer low
+    CE_START = CE_END + (50 * 9) # derive start by stepping forward 9 strikes
 
     print("\nNifty")
     print(f"High of previous 2 days\t\t{A}")
@@ -141,13 +141,12 @@ def calculate_nifty_options(kite, instrument_token):
     print(f"\tCall Sell Start Strike\t{CE_START}")
     print(f"\tCall Sell End Strike\t{CE_END}\n")
 
-    # Candidate strikes bounded correctly
-# PE: ascending from START → END (include START)
-    PE_strikes = list(range(PE_START, PE_END + 1, 50))[:10]
+    # ---------- Strike Lists ----------
+    # PE: descending from END → START
+    PE_strikes = list(range(PE_END, PE_START - 50, -50))
 
-    # CE: descending from START → END (include START)
-    CE_strikes = list(range(CE_START, CE_END - 1, -50))[:10]
-
+    # CE: ascending from END → START
+    CE_strikes = list(range(CE_END, CE_START + 50, 50))
 
     print("PE strike list:", PE_strikes)
     print("CE strike list:", CE_strikes)
