@@ -95,7 +95,7 @@ def check_strike_eligibility(kite, tradingsymbol, instrument_token, strike, thre
         df = df[df["date"] < today].sort_values(by="date", ascending=False)
 
         if df.empty:
-            return False
+            return None
 
         low2 = df.head(2)["low"].min()
         threshold = strike * 0.0085
@@ -103,14 +103,12 @@ def check_strike_eligibility(kite, tradingsymbol, instrument_token, strike, thre
         quote = kite.quote([f"NFO:{tradingsymbol}"])
         oi = quote[f"NFO:{tradingsymbol}"]["oi"]
 
-        # Log details
-        print(f"{tradingsymbol} => {threshold:.2f} (0.85%) => {low2} (2d low) => {oi} (OI)")
-
-        return oi >= threshold_oi and low2 > threshold
+        # Return formatted string
+        return f"{tradingsymbol} => {threshold:.2f} (0.85%) => {low2} (2d low) => {oi} (OI)"
 
     except Exception as e:
         print(f"Eligibility check failed for {tradingsymbol}: {e}")
-        return False
+        return None
 
 # ---------- Calculate Nifty Option Strikes ----------
 def calculate_nifty_options(kite, instrument_token):
@@ -127,6 +125,7 @@ def calculate_nifty_options(kite, instrument_token):
     PE_END = ceiling(AB, 50)   # nearest strike >= buffer high
     CE_END = floor(BB, 50)     # nearest strike <= buffer low
     CE_START = ceiling(A, 50)  # nearest strike >= 2d high
+    PE_START = floor(B, 50)    # nearest strike <= 2d low
 
     # Print logic in requested format
     print("\nNifty")
@@ -139,50 +138,37 @@ def calculate_nifty_options(kite, instrument_token):
     print(f"\tCall end strike\t{CE_END}\n")
 
     # Candidate strikes bounded correctly
-    PE_strikes = list(range(PE_END, PE_END - 50*10, -50))
-    CE_strikes = list(range(CE_END, CE_START + 50, 50))  # from CE_END up to CE_START
+    PE_strikes = list(range(PE_END, PE_START - 50, -50))
+    CE_strikes = list(range(CE_END, CE_START + 50, 50))
 
     print("PE strike list:", PE_strikes)
     print("CE strike list:", CE_strikes)
 
-    expiries = get_all_expiries(kite)
     expiry = get_weekly_expiry(kite)
     if not expiry:
         return
 
     symbol_map = find_strikes_for_expiry(kite, expiry)
 
-    # Find eligible PE_TODAY with logs
-    PE_TODAY, PE_TS = None, None
+    # Loop through ALL PE strikes
     for strike in PE_strikes:
         key = f"{strike}PE"
         if key in symbol_map:
             ts = symbol_map[key]["tradingsymbol"]
             token = symbol_map[key]["token"]
-            if check_strike_eligibility(kite, ts, token, strike):
-                PE_TODAY, PE_TS = strike, ts
-                break
+            result = check_strike_eligibility(kite, ts, token, strike)
+            if result:
+                print(result)
 
-    # Find eligible CE_TODAY with logs
-    CE_TODAY, CE_TS = None, None
+    # Loop through ALL CE strikes
     for strike in CE_strikes:
         key = f"{strike}CE"
         if key in symbol_map:
             ts = symbol_map[key]["tradingsymbol"]
             token = symbol_map[key]["token"]
-            if check_strike_eligibility(kite, ts, token, strike):
-                CE_TODAY, CE_TS = strike, ts
-                break
-
-    send_telegram_message(
-        f"📊 NIFTY Options Levels\n"
-        f"Expiry: {expiry}\n"
-        f"A (2d High): {A}\nB (2d Low): {B}\n"
-        f"BUFFER High: {mround(AB)} | Buffer Low: {mround(BB)}\n"
-        f"PE_END: {PE_END}, PE_TODAY: {PE_TODAY} ({PE_TS if PE_TS else '-'})\n"
-        f"CE_START: {CE_START}, CE_END: {CE_END}, CE_TODAY: {CE_TODAY} ({CE_TS if CE_TS else '-'})"
-    )
-
+            result = check_strike_eligibility(kite, ts, token, strike)
+            if result:
+                print(result)
 
 # ---------- Public entry point ----------
 def start_nifty_options():
