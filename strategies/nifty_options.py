@@ -42,32 +42,6 @@ def get_all_expiries(kite):
     expiries = sorted(set([i["expiry"] for i in nifty_options]))
     return expiries
 
-def get_weekly_expiry(kite):
-    expiries = get_all_expiries(kite)
-    today = datetime.today().date()
-    weekday = today.weekday()
-
-    if not expiries:
-        send_telegram_message("❌ No NIFTY option expiries found")
-        return None
-
-    current_expiry = expiries[0]
-    print("Available expiries:", expiries)
-    print("Current expiry chosen:", current_expiry)
-
-    if current_expiry.weekday() == 1:  # Tuesday expiry
-        if weekday in [0, 1]:
-            return expiries[1] if len(expiries) > 1 else current_expiry
-        else:
-            return current_expiry
-    elif current_expiry.weekday() == 0:  # Monday expiry
-        if weekday == 4:
-            return expiries[1] if len(expiries) > 1 else current_expiry
-        else:
-            return current_expiry
-    else:
-        return current_expiry
-
 # ---------- Strike Mapping ----------
 def find_strikes_for_expiry(kite, expiry):
     instruments = kite.instruments("NFO")
@@ -80,7 +54,6 @@ def find_strikes_for_expiry(kite, expiry):
             "tradingsymbol": inst["tradingsymbol"],
             "token": inst["instrument_token"]
         }
-
     return symbol_map
 
 # ---------- Strike Eligibility ----------
@@ -142,10 +115,7 @@ def calculate_nifty_options(kite, instrument_token):
     print(f"\tCall Sell End Strike\t{CE_END}\n")
 
     # ---------- Strike Lists ----------
-    # PE: descending from END → START
     PE_strikes = list(range(PE_END, PE_START - 50, -50))
-
-    # CE: ascending from END → START
     CE_strikes = list(range(CE_END, CE_START + 50, 50))
 
     PE_strikes.reverse()
@@ -154,16 +124,17 @@ def calculate_nifty_options(kite, instrument_token):
     print("PE strike list:", PE_strikes)
     print("CE strike list:", CE_strikes)
 
-    expiry = get_weekly_expiry(kite)
-    if not expiry:
+    expiries = get_all_expiries(kite)
+    if not expiries:
         return
 
-    symbol_map = find_strikes_for_expiry(kite, expiry)
+    current_expiry = expiries[0]
+    symbol_map = find_strikes_for_expiry(kite, current_expiry)
 
     eligible_pe = None
     eligible_ce = None
 
-    # Loop through PE strikes
+    # Loop through PE strikes in current expiry
     for strike in PE_strikes:
         key = f"{strike}PE"
         if key in symbol_map:
@@ -173,10 +144,10 @@ def calculate_nifty_options(kite, instrument_token):
             if result:
                 print(result)
                 if "✅ Eligible" in result:
-                    eligible_pe = result
-                    break   # stop after first eligible PE
+                    eligible_pe = f"{result} (Expiry {current_expiry})"
+                    break
 
-    # Loop through CE strikes
+    # Loop through CE strikes in current expiry
     for strike in CE_strikes:
         key = f"{strike}CE"
         if key in symbol_map:
@@ -186,19 +157,53 @@ def calculate_nifty_options(kite, instrument_token):
             if result:
                 print(result)
                 if "✅ Eligible" in result:
-                    eligible_ce = result
-                    break   # stop after first eligible CE
+                    eligible_ce = f"{result} (Expiry {current_expiry})"
+                    break
 
-    # Send only the first eligible strikes to Telegram
+    # If PE not found, check next expiry
+    if not eligible_pe and len(expiries) > 1:
+        next_expiry = expiries[1]
+        print(f"\nNo eligible PE in {current_expiry}, checking next expiry: {next_expiry}")
+        symbol_map = find_strikes_for_expiry(kite, next_expiry)
+        for strike in PE_strikes:
+            key = f"{strike}PE"
+            if key in symbol_map:
+                ts = symbol_map[key]["tradingsymbol"]
+                token = symbol_map[key]["token"]
+                result = check_strike_eligibility(kite, ts, token, strike)
+                if result:
+                    print(result)
+                    if "✅ Eligible" in result:
+                        eligible_pe = f"{result} (Expiry {next_expiry})"
+                        break
+
+    # If CE not found, check next expiry
+    if not eligible_ce and len(expiries) > 1:
+        next_expiry = expiries[1]
+        print(f"\nNo eligible CE in {current_expiry}, checking next expiry: {next_expiry}")
+        symbol_map = find_strikes_for_expiry(kite, next_expiry)
+        for strike in CE_strikes:
+            key = f"{strike}CE"
+            if key in symbol_map:
+                ts = symbol_map[key]["tradingsymbol"]
+                token = symbol_map[key]["token"]
+                result = check_strike_eligibility(kite, ts, token, strike)
+                if result:
+                    print(result)
+                    if "✅ Eligible" in result:
+                        eligible_ce = f"{result} (Expiry {next_expiry})"
+                        break
+
+    # Final Telegram message
     if eligible_pe or eligible_ce:
-        msg = f"📊 Eligible NIFTY Strikes\nExpiry: {expiry}\n"
+        msg = "📊 Eligible NIFTY Strikes\n"
         if eligible_pe:
             msg += f"{eligible_pe}\n"
         if eligible_ce:
             msg += f"{eligible_ce}\n"
         send_telegram_message(msg)
     else:
-        send_telegram_message(f"❌ No eligible strikes found for Expiry: {expiry}")
+        send_telegram_message("❌ No eligible strikes found in current or next expiry")
 
 # ---------- Public entry point ----------
 def start_nifty_options():
