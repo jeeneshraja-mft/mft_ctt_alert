@@ -140,9 +140,10 @@ def calculate_nifty_options(kite, instrument_token):
     B = df.head(2)["low"].min()
 
     # ✅ Correct strike rounding
-    PE_END = floor(A, 50)   # nearest strike <= A
-    CE_END = ceiling(B, 50) # nearest strike >= B
+    PE_END = ceiling(A, 50)   # nearest strike >= A
+    CE_END = floor(B, 50)     # nearest strike <= B
 
+    # Generate candidate strikes outward
     PE_strikes = list(range(PE_END, PE_END - 50*10, -50))
     CE_strikes = list(range(CE_END, CE_END + 50*10, 50))
 
