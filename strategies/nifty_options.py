@@ -142,8 +142,12 @@ def calculate_nifty_options(kite, instrument_token):
     print(f"\tCall Sell End Strike\t{CE_END}\n")
 
     # Candidate strikes bounded correctly
-    PE_strikes = list(range(PE_START, PE_END + 50, 50))[:10]   # ascending
-    CE_strikes = list(range(CE_START, CE_END - 50, -50))[:10]  # descending
+# PE: ascending from START → END (include START)
+    PE_strikes = list(range(PE_START, PE_END + 1, 50))[:10]
+
+    # CE: descending from START → END (include START)
+    CE_strikes = list(range(CE_START, CE_END - 1, -50))[:10]
+
 
     print("PE strike list:", PE_strikes)
     print("CE strike list:", CE_strikes)
