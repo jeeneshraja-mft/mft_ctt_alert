@@ -198,31 +198,15 @@ def calculate_nifty_options(kite, instrument_token):
     if eligible_pe or eligible_ce:
         msg = "📊 Eligible NIFTY Strikes\n"
 
-        # CE strategy levels
         if eligible_ce:
-            msg += f"{eligible_ce}\n"
-            # Extract tradingsymbol and token from symbol_map for CE
-            ce_strike = int(eligible_ce.split("NIFTY")[1].split("CE")[0])
-            ce_key = f"{ce_strike}CE"
-            if ce_key in symbol_map:
-                ce_ts = symbol_map[ce_key]["tradingsymbol"]
-                ce_token = symbol_map[ce_key]["token"]
-                ce_levels = calculate_strategy_levels(kite, ce_ts, ce_token, ce_strike, "CE")
-                if ce_levels:
-                    msg += f"➡️ CE Entry: {ce_levels['Entry']}, Target: {ce_levels['Target']}, Stoploss: {ce_levels['Stoploss']}\n"
+            ce_levels = calculate_strategy_levels_from_result(kite, eligible_ce, symbol_map, "CE")
+            if ce_levels:
+                msg += f"➡️ CE Entry: {ce_levels['Entry']}, Target: {ce_levels['Target']}, Stoploss: {ce_levels['Stoploss']}\n"
 
-        # PE strategy levels
         if eligible_pe:
-            msg += f"{eligible_pe}\n"
-            # Extract tradingsymbol and token from symbol_map for PE
-            pe_strike = int(eligible_pe.split("NIFTY")[1].split("PE")[0])
-            pe_key = f"{pe_strike}PE"
-            if pe_key in symbol_map:
-                pe_ts = symbol_map[pe_key]["tradingsymbol"]
-                pe_token = symbol_map[pe_key]["token"]
-                pe_levels = calculate_strategy_levels(kite, pe_ts, pe_token, pe_strike, "PE")
-                if pe_levels:
-                    msg += f"➡️ PE Entry: {pe_levels['Entry']}, Target: {pe_levels['Target']}, Stoploss: {pe_levels['Stoploss']}\n"
+            pe_levels = calculate_strategy_levels_from_result(kite, eligible_pe, symbol_map, "PE")
+            if pe_levels:
+                msg += f"➡️ PE Entry: {pe_levels['Entry']}, Target: {pe_levels['Target']}, Stoploss: {pe_levels['Stoploss']}\n"
 
         send_telegram_message(msg)
     else:
@@ -239,17 +223,34 @@ def start_nifty_options():
     calculate_nifty_options(kite, instrument_token)
 
 # ---------- Strategy Calculation ----------
-def calculate_strategy_levels(kite, tradingsymbol, instrument_token, strike, option_type):
+def calculate_strategy_levels_from_result(kite, eligible_result, symbol_map, option_type):
     """
     Calculate Entry, Target, and Stoploss levels for CE/PE based on last 2 days high/low.
+    eligible_result: the string you already store (e.g. "NIFTY26MAY23800CE => ... ✅ Eligible")
+    symbol_map: the expiry's symbol_map dict
     option_type: "CE" or "PE"
     """
-    today = datetime.today().date()
-    from_date = today - timedelta(days=5)
-
     try:
+        # Extract strike from the eligible_result string
+        # Example: "NIFTY26MAY23800CE" -> 23800
+        parts = eligible_result.split("NIFTY")
+        if len(parts) < 2:
+            return None
+        suffix = parts[1]
+        strike_str = suffix.split(option_type)[0]
+        strike = int(''.join([c for c in strike_str if c.isdigit()]))
+
+        key = f"{strike}{option_type}"
+        if key not in symbol_map:
+            return None
+
+        ts = symbol_map[key]["tradingsymbol"]
+        token = symbol_map[key]["token"]
+
         # Load last 2 days data
-        data = kite.historical_data(instrument_token, from_date, today, "day")
+        today = datetime.today().date()
+        from_date = today - timedelta(days=5)
+        data = kite.historical_data(token, from_date, today, "day")
         df = pd.DataFrame(data)
         df["date"] = pd.to_datetime(df["date"]).dt.date
         df = df[df["date"] < today].sort_values(by="date", ascending=False)
@@ -257,7 +258,6 @@ def calculate_strategy_levels(kite, tradingsymbol, instrument_token, strike, opt
         if df.empty:
             return None
 
-        # CE/PE High and Low
         opt_high = df.head(2)["high"].max()
         opt_low = df.head(2)["low"].max()
 
@@ -270,16 +270,15 @@ def calculate_strategy_levels(kite, tradingsymbol, instrument_token, strike, opt
         slb = opt_high * (1 + 0.10)
         stoploss = min(sla, slb)
 
-        result = {
-            "Option": f"{tradingsymbol} ({option_type})",
+        return {
+            "Option": f"{ts} ({option_type})",
             "High2d": opt_high,
             "Low2d": opt_low,
             "Entry": round(entry, 2),
             "Target": round(target, 2),
             "Stoploss": round(stoploss, 2)
         }
-        return result
 
     except Exception as e:
-        print(f"Strategy calculation failed for {tradingsymbol}: {e}")
+        print(f"Strategy calculation failed: {e}")
         return None
