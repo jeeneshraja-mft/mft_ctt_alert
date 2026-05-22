@@ -11,7 +11,6 @@ def mround(value, base=1):
 # ---------- Get Latest GOLD Contract (ROBUST) ----------
 def get_latest_goldten_token(kite: KiteConnect):
     mcx_instruments = kite.instruments("MCX")
-
     today = date.today()
 
     valid_contracts = []
@@ -30,12 +29,25 @@ def get_latest_goldten_token(kite: KiteConnect):
     if not valid_contracts:
         raise Exception("❌ No active GOLDTEN contracts found")
 
-    # ✅ Pick nearest expiry (correct contract)
-    selected = sorted(valid_contracts, key=lambda x: x["expiry"])[0]
+    # ✅ Sort by expiry date
+    valid_contracts = sorted(valid_contracts, key=lambda x: x["expiry"])
+
+    # ✅ Pick contract with expiry > 10 days
+    selected = None
+    for inst in valid_contracts:
+        days_left = (inst["expiry"] - today).days
+        if days_left > 10:
+            selected = inst
+            break
+
+    if not selected:
+        # fallback: nearest expiry if all are within 10 days
+        selected = valid_contracts[0]
 
     print(f"✅ Using GOLDTEN contract: {selected['tradingsymbol']} (Expiry: {selected['expiry']})")
 
     return selected["instrument_token"], selected["tradingsymbol"]
+
 
 # ---------- Strategy Function ----------
 def fetch_strategy_levels(kite: KiteConnect):
@@ -150,8 +162,8 @@ def fetch_strategy_levels(kite: KiteConnect):
         "sell_sl2": sell_sl2
     }
 
-# ---------- MAIN ENTRY POINT (for main.py) ----------
 
+# ---------- MAIN ENTRY POINT ----------
 def calculate_gold_strategy(kite):
     data = fetch_strategy_levels(kite)
     changed = save_gold_strategy(data)
