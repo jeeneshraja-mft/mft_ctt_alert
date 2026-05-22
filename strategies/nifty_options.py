@@ -83,7 +83,7 @@ def find_strikes_for_expiry(kite, expiry):
 
     return symbol_map
 
-# ---------- Strike Eligibility with Logs ----------
+# ---------- Strike Eligibility ----------
 def check_strike_eligibility(kite, tradingsymbol, instrument_token, strike, threshold_oi=35000):
     today = datetime.today().date()
     from_date = today - timedelta(days=5)
@@ -123,26 +123,25 @@ def calculate_nifty_options(kite, instrument_token):
     AB = A * (1 + 0.0015)
     BB = B * (1 - 0.0015)
 
-    # Strike anchors
-    PE_END = ceiling(AB, 50)   # nearest strike >= buffer high
-    PE_START = floor(B, 50)    # nearest strike <= 2d low
-    CE_END = floor(BB, 50)     # nearest strike <= buffer low
-    CE_START = ceiling(A, 50)  # nearest strike >= 2d high
+    # Strike anchors (corrected)
+    PE_START = ceiling(B, 50)    # nearest strike >= 2d low
+    PE_END   = ceiling(AB, 50)   # nearest strike >= buffer high
 
-    # Print logic in requested format
+    CE_START = floor(A, 50)      # nearest strike <= 2d high
+    CE_END   = floor(BB, 50)     # nearest strike <= buffer low
+
     print("\nNifty")
     print(f"High of previous 2 days\t\t{A}")
     print(f"Low of previous 2 days\t\t{B}\n")
     print(f"\tBUFFER\tHigh {mround(AB)}")
     print(f"\tBuffer Low {mround(BB)}\n")
     print("Next strike selection to the buffer\n")
-    print(f"\tPut start strike\t{PE_START}")
-    print(f"\tPut end strike\t{PE_END}")
-    print(f"\tCall start strike\t{CE_START}")
-    print(f"\tCall end strike\t{CE_END}\n")
+    print(f"\tPut Sell Start Strike\t{PE_START}")
+    print(f"\tPut Sell End Strike\t{PE_END}")
+    print(f"\tCall Sell Start Strike\t{CE_START}")
+    print(f"\tCall Sell End Strike\t{CE_END}\n")
 
-    # Candidate strikes bounded correctly (limit to 10 from START to END)
-# Candidate strikes bounded correctly (limit to 10 from START to END)
+    # Candidate strikes bounded correctly
     PE_strikes = list(range(PE_START, PE_END + 50, 50))[:10]   # ascending
     CE_strikes = list(range(CE_START, CE_END - 50, -50))[:10]  # descending
 
@@ -155,7 +154,6 @@ def calculate_nifty_options(kite, instrument_token):
 
     symbol_map = find_strikes_for_expiry(kite, expiry)
 
-    # Track first eligible strikes
     eligible_pe = None
     eligible_ce = None
 
@@ -168,8 +166,9 @@ def calculate_nifty_options(kite, instrument_token):
             result = check_strike_eligibility(kite, ts, token, strike)
             if result:
                 print(result)
-                if "✅ Eligible" in result and not eligible_pe:
+                if "✅ Eligible" in result:
                     eligible_pe = result
+                    break   # stop after first eligible PE
 
     # Loop through CE strikes
     for strike in CE_strikes:
@@ -180,10 +179,11 @@ def calculate_nifty_options(kite, instrument_token):
             result = check_strike_eligibility(kite, ts, token, strike)
             if result:
                 print(result)
-                if "✅ Eligible" in result and not eligible_ce:
+                if "✅ Eligible" in result:
                     eligible_ce = result
+                    break   # stop after first eligible CE
 
-    # Send only the first eligible strikes to Telegram, with expiry
+    # Send only the first eligible strikes to Telegram
     if eligible_pe or eligible_ce:
         msg = f"📊 Eligible NIFTY Strikes\nExpiry: {expiry}\n"
         if eligible_pe:
