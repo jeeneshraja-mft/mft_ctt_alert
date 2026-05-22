@@ -205,12 +205,12 @@ def calculate_nifty_options(kite, instrument_token):
     else:
         send_telegram_message("❌ No eligible strikes found in current or next expiry")
 
-    levels = calculate_strategy_levels(kite, ts, token, strike, "CE")
+    levels1 = calculate_strategy_levels(kite, ts, token, strike, "CE")
     print("CE Levels:")
-    print(levels)
+    print(levels1)
 
-    levels = calculate_strategy_levels(kite, ts, token, strike, "PE")
-    print(levels)
+    levels2 = calculate_strategy_levels(kite, ts, token, strike, "PE")
+    print(levels2)
 
 # ---------- Public entry point ----------
 def start_nifty_options():
