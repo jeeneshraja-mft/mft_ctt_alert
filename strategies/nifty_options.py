@@ -139,11 +139,9 @@ def calculate_nifty_options(kite, instrument_token):
     A = df.head(2)["high"].max()
     B = df.head(2)["low"].min()
 
-    AB = A * (1 + 0.0015)
-    BB = B * (1 - 0.0015)
-
-    PE_END = ceiling(AB, 50)
-    CE_END = floor(BB, 50)
+    # ✅ Correct strike rounding
+    PE_END = floor(A, 50)   # nearest strike <= A
+    CE_END = ceiling(B, 50) # nearest strike >= B
 
     PE_strikes = list(range(PE_END, PE_END - 50*10, -50))
     CE_strikes = list(range(CE_END, CE_END + 50*10, 50))
@@ -175,7 +173,6 @@ def calculate_nifty_options(kite, instrument_token):
         f"📊 NIFTY Options Levels\n"
         f"Expiry: {expiry}\n"
         f"A (2d High): {A}\nB (2d Low): {B}\n"
-        f"AB: {mround(AB)} | BB: {mround(BB)}\n"
         f"PE_END: {PE_END}, PE_TODAY: {PE_TODAY} ({PE_TS if PE_TS else '-'})\n"
         f"CE_END: {CE_END}, CE_TODAY: {CE_TODAY} ({CE_TS if CE_TS else '-'})"
     )
