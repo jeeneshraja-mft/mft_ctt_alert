@@ -125,7 +125,6 @@ def calculate_nifty_options(kite, instrument_token):
     PE_END = ceiling(AB, 50)   # nearest strike >= buffer high
     CE_END = floor(BB, 50)     # nearest strike <= buffer low
     CE_START = ceiling(A, 50)  # nearest strike >= 2d high
-    PE_START = floor(B, 50)    # nearest strike <= 2d low
 
     # Print logic in requested format
     print("\nNifty")
@@ -137,9 +136,9 @@ def calculate_nifty_options(kite, instrument_token):
     print(f"\tPut end strike\t{PE_END}")
     print(f"\tCall end strike\t{CE_END}\n")
 
-    # Candidate strikes bounded correctly
-    PE_strikes = list(range(PE_END, PE_START - 50, -50))
-    CE_strikes = list(range(CE_END, CE_START + 50, 50))
+    # Candidate strikes limited to 10
+    PE_strikes = [PE_END - i*50 for i in range(10)]
+    CE_strikes = [CE_END + i*50 for i in range(10)]
 
     print("PE strike list:", PE_strikes)
     print("CE strike list:", CE_strikes)
