@@ -119,14 +119,31 @@ def calculate_nifty_options(kite, instrument_token):
     A = df.head(2)["high"].max()
     B = df.head(2)["low"].min()
 
-    # Anchors
-    PE_END = floor(A, 50)    # nearest strike <= A
-    CE_END = floor(B, 50)    # nearest strike <= B
-    CE_START = ceiling(A, 50)  # nearest strike >= A
+    # Buffer calculations
+    AB = A * (1 + 0.0015)
+    BB = B * (1 - 0.0015)
 
-    # Generate candidate strikes
+    # Strike anchors
+    PE_END = ceiling(AB, 50)   # nearest strike >= buffer high
+    CE_END = floor(BB, 50)     # nearest strike <= buffer low
+    CE_START = ceiling(A, 50)  # start from high side
+
+    # Print logic in requested format
+    print("\nNifty")
+    print(f"High of previous 2 days\t\t{A}")
+    print(f"Low of previous 2 days\t\t{B}\n")
+    print(f"\tBUFFER\tHigh {mround(AB)}")
+    print(f"\tBuffer Low {mround(BB)}\n")
+    print("Next strike selection to the buffer\n")
+    print(f"\tPut end strike\t{PE_END}")
+    print(f"\tCall end strike\t{CE_END}\n")
+
+    # Candidate strikes
     PE_strikes = list(range(PE_END, PE_END - 50*10, -50))
     CE_strikes = list(range(CE_START, CE_END - 50, -50))  # descending from CE_START to CE_END
+
+    print("PE strike list:", PE_strikes)
+    print("CE strike list:", CE_strikes)
 
     expiries = get_all_expiries(kite)
     expiry = get_weekly_expiry(kite)
@@ -161,6 +178,7 @@ def calculate_nifty_options(kite, instrument_token):
         f"📊 NIFTY Options Levels\n"
         f"Expiry: {expiry}\n"
         f"A (2d High): {A}\nB (2d Low): {B}\n"
+        f"BUFFER High: {mround(AB)} | Buffer Low: {mround(BB)}\n"
         f"PE_END: {PE_END}, PE_TODAY: {PE_TODAY} ({PE_TS if PE_TS else '-'})\n"
         f"CE_START: {CE_START}, CE_END: {CE_END}, CE_TODAY: {CE_TODAY} ({CE_TS if CE_TS else '-'})"
     )
