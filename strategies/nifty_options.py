@@ -141,12 +141,15 @@ def calculate_nifty_options(kite, instrument_token):
 
     # ✅ Correct strike rounding
     PE_END = ceiling(A, 50)   # nearest strike >= A
-    CE_END = floor(B, 50)     # nearest strike <= B
+    # Generate candidate CE strikes from CE_START down to CE_END
+    CE_START = ceiling(A, 50)   # nearest strike >= 2d High
+    CE_END   = floor(B, 50)     # nearest strike <= 2d Low
+
+    CE_strikes = list(range(CE_START, CE_END - 50, -50))
 
     # Generate candidate strikes outward
     PE_strikes = list(range(PE_END, PE_END - 50*10, -50))
-    CE_strikes = list(range(CE_END, CE_END + 50*10, 50))
-
+    
     expiries = get_all_expiries(kite)
     expiry = get_weekly_expiry(kite)
     if not expiry:
