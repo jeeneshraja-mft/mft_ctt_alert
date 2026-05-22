@@ -148,6 +148,9 @@ def calculate_nifty_options(kite, instrument_token):
     # CE: ascending from END → START
     CE_strikes = list(range(CE_END, CE_START + 50, 50))
 
+    PE_strikes.reverse()
+    CE_strikes.reverse()
+
     print("PE strike list:", PE_strikes)
     print("CE strike list:", CE_strikes)
 
