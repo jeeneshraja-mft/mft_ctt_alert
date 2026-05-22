@@ -194,23 +194,39 @@ def calculate_nifty_options(kite, instrument_token):
                         eligible_ce = f"{result} (Expiry {next_expiry})"
                         break
 
-    # Final Telegram message
+        # Final Telegram message
     if eligible_pe or eligible_ce:
         msg = "📊 Eligible NIFTY Strikes\n"
+
+        # CE strategy levels
         if eligible_ce:
             msg += f"{eligible_ce}\n"
+            # Extract tradingsymbol and token from symbol_map for CE
+            ce_strike = int(eligible_ce.split("NIFTY")[1].split("CE")[0])
+            ce_key = f"{ce_strike}CE"
+            if ce_key in symbol_map:
+                ce_ts = symbol_map[ce_key]["tradingsymbol"]
+                ce_token = symbol_map[ce_key]["token"]
+                ce_levels = calculate_strategy_levels(kite, ce_ts, ce_token, ce_strike, "CE")
+                if ce_levels:
+                    msg += f"➡️ CE Entry: {ce_levels['Entry']}, Target: {ce_levels['Target']}, Stoploss: {ce_levels['Stoploss']}\n"
+
+        # PE strategy levels
         if eligible_pe:
             msg += f"{eligible_pe}\n"
+            # Extract tradingsymbol and token from symbol_map for PE
+            pe_strike = int(eligible_pe.split("NIFTY")[1].split("PE")[0])
+            pe_key = f"{pe_strike}PE"
+            if pe_key in symbol_map:
+                pe_ts = symbol_map[pe_key]["tradingsymbol"]
+                pe_token = symbol_map[pe_key]["token"]
+                pe_levels = calculate_strategy_levels(kite, pe_ts, pe_token, pe_strike, "PE")
+                if pe_levels:
+                    msg += f"➡️ PE Entry: {pe_levels['Entry']}, Target: {pe_levels['Target']}, Stoploss: {pe_levels['Stoploss']}\n"
+
         send_telegram_message(msg)
     else:
         send_telegram_message("❌ No eligible strikes found in current or next expiry")
-
-    levels1 = calculate_strategy_levels(kite, ts, token, strike, "CE")
-    print("CE Levels:")
-    print(levels1)
-
-    levels2 = calculate_strategy_levels(kite, ts, token, strike, "PE")
-    print(levels2)
 
 # ---------- Public entry point ----------
 def start_nifty_options():
