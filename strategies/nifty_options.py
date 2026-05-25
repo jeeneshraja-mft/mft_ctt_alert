@@ -263,11 +263,11 @@ def calculate_entry_levels(kite, tradingsymbol, instrument_token, option_type="C
     two_day_high = df.head(min(2, len(df)))["high"].max()
     two_day_low  = df.head(min(2, len(df)))["low"].min()
 
-    # Entry/Target/Stoploss calculations
-    entry    = mround(two_day_low * (1 - 0.10), 0.05)
-    target   = entry * (1 - 0.75)
-    slc1     = entry * (1 + 0.75)
-    slc2     = two_day_high * (1 + 0.10)
+    # --- Correct Excel-aligned calculations ---
+    entry    = mround(two_day_low * (1 - 0.10), 0.05)   # 10% below 2D low
+    target   = entry * 0.25                             # 25% of entry (same as Entry*(1-75%))
+    slc1     = entry * 1.75                             # Entry*(1+75%)
+    slc2     = two_day_high * 1.10                      # 2D High*(1+10%)
     stoploss = min(slc1, slc2)
 
     result = {
