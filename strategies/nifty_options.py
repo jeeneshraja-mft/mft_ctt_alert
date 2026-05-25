@@ -289,15 +289,6 @@ def calculate_entry_levels(kite, tradingsymbol, instrument_token, option_type="C
         "STOPLOSS": stoploss
     }
 
-    send_telegram_message(
-        f"📊 Entry Levels for {tradingsymbol} ({option_type})\n"
-        f"2D High: {two_day_high}\n"
-        f"2D Low: {two_day_low}\n"
-        f"Entry: {entry}\n"
-        f"Target: {target}\n"
-        f"Stoploss: {stoploss}"
-    )
-
     return result
 
 
