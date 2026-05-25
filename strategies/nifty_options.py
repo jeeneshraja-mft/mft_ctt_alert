@@ -209,11 +209,6 @@ def calculate_nifty_options(kite, instrument_token):
 
     # Final Telegram message
     if eligible_pe or eligible_ce:
-        msg = "📊 Eligible NIFTY Strikes\n"
-        if eligible_ce:
-            msg += f"{eligible_ce}\n"
-        if eligible_pe:
-            msg += f"{eligible_pe}\n"
 
         # After confirming an eligible PE strike
         if eligible_pe and eligible_pe_ts and eligible_pe_token:
@@ -240,8 +235,6 @@ def calculate_nifty_options(kite, instrument_token):
                     f"Target: {ce_levels['TARGET']}\n"
                     f"Stoploss: {ce_levels['STOPLOSS']}"
                 )
-
-        send_telegram_message(msg)
 
     else:
         send_telegram_message("❌ No eligible strikes found in current or next expiry")
