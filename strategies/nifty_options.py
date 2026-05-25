@@ -247,27 +247,29 @@ def calculate_entry_levels(kite, tradingsymbol, instrument_token, option_type="C
     """
 
     today = datetime.today().date()
-    from_date = today - timedelta(days=3)
+    from_date = today - timedelta(days=5)
 
     # Historical data (daily candles)
     data = kite.historical_data(instrument_token, from_date, today, "day")
     df = pd.DataFrame(data)
     df["date"] = pd.to_datetime(df["date"]).dt.date
-    df = df.sort_values(by="date", ascending=False)
 
-    if df.empty:
-        send_telegram_message(f"⚠️ No data for {tradingsymbol}")
+    # ✅ Use same filter as eligibility check
+    df = df[df["date"] < today].sort_values(by="date", ascending=False)
+
+    if df.empty or len(df) < 2:
+        send_telegram_message(f"⚠️ Not enough data for {tradingsymbol}")
         return None
 
-    # Use up to 2 most recent days (including today)
-    two_day_high = df.head(min(2, len(df)))["high"].max()
-    two_day_low  = df.head(min(2, len(df)))["low"].min()
+    # ✅ Same definition of 2D high/low
+    two_day_high = df.head(2)["high"].max()
+    two_day_low  = df.head(2)["low"].min()
 
-    # --- Correct Excel-aligned calculations ---
-    entry    = mround(two_day_low * (1 - 0.10), 0.05)   # 10% below 2D low
-    target   = entry * 0.25                             # 25% of entry (same as Entry*(1-75%))
-    slc1     = entry * 1.75                             # Entry*(1+75%)
-    slc2     = two_day_high * 1.10                      # 2D High*(1+10%)
+    # Excel-aligned calculations
+    entry    = mround(two_day_low * 0.90, 0.05)
+    target   = entry * 0.25
+    slc1     = entry * 1.75
+    slc2     = two_day_high * 1.10
     stoploss = min(slc1, slc2)
 
     result = {
@@ -280,7 +282,6 @@ def calculate_entry_levels(kite, tradingsymbol, instrument_token, option_type="C
         "STOPLOSS": stoploss
     }
 
-    # Send levels to Telegram
     send_telegram_message(
         f"📊 Entry Levels for {tradingsymbol} ({option_type})\n"
         f"2D High: {two_day_high}\n"
@@ -291,6 +292,7 @@ def calculate_entry_levels(kite, tradingsymbol, instrument_token, option_type="C
     )
 
     return result
+
 
 
 def start_nifty_options():
