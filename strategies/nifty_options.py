@@ -97,16 +97,32 @@ def calculate_nifty_options(kite, instrument_token):
     BB = B * (1 - 0.0015)
 
     # ---------- Strike Anchors ----------
-    PE_END   = ceiling(AB, 50)
-    PE_START = PE_END - (50 * 9)
+    PE_END   = ceiling(AB, 50)   # nearest strike >= buffer high
+    PE_START = PE_END - (50 * 9) # derive start by stepping back 9 strikes
 
-    CE_END   = floor(BB, 50)
-    CE_START = CE_END + (50 * 9)
+    CE_END   = floor(BB, 50)     # nearest strike <= buffer low
+    CE_START = CE_END + (50 * 9) # derive start by stepping forward 9 strikes
 
+    print("\nNifty")
+    print(f"High of previous 2 days\t\t{A}")
+    print(f"Low of previous 2 days\t\t{B}\n")
+    print(f"\tBUFFER\tHigh {mround(AB)}")
+    print(f"\tBuffer Low {mround(BB)}\n")
+    print("Next strike selection to the buffer\n")
+    print(f"\tPut Sell Start Strike\t{PE_START}")
+    print(f"\tPut Sell End Strike\t{PE_END}")
+    print(f"\tCall Sell Start Strike\t{CE_START}")
+    print(f"\tCall Sell End Strike\t{CE_END}\n")
+
+    # ---------- Strike Lists ----------
     PE_strikes = list(range(PE_END, PE_START - 50, -50))
     CE_strikes = list(range(CE_END, CE_START + 50, 50))
+
     PE_strikes.reverse()
     CE_strikes.reverse()
+
+    print("PE strike list:", PE_strikes)
+    print("CE strike list:", CE_strikes)
 
     expiries = get_all_expiries(kite)
     if not expiries:
@@ -118,41 +134,36 @@ def calculate_nifty_options(kite, instrument_token):
     eligible_pe = None
     eligible_ce = None
 
-    # Loop through PE strikes
+    # Loop through PE strikes in current expiry
     for strike in PE_strikes:
         key = f"{strike}PE"
         if key in symbol_map:
             ts = symbol_map[key]["tradingsymbol"]
             token = symbol_map[key]["token"]
             result = check_strike_eligibility(kite, ts, token, strike)
-            if result and "✅ Eligible" in result:
-                eligible_pe = {
-                    "msg": f"{result} (Expiry {current_expiry})",
-                    "strike": strike,
-                    "ts": ts,
-                    "token": token
-                }
-                break
+            if result:
+                print(result)
+                if "✅ Eligible" in result:
+                    eligible_pe = f"{result} (Expiry {current_expiry})"
+                    break
 
-    # Loop through CE strikes
+    # Loop through CE strikes in current expiry
     for strike in CE_strikes:
         key = f"{strike}CE"
         if key in symbol_map:
             ts = symbol_map[key]["tradingsymbol"]
             token = symbol_map[key]["token"]
             result = check_strike_eligibility(kite, ts, token, strike)
-            if result and "✅ Eligible" in result:
-                eligible_ce = {
-                    "msg": f"{result} (Expiry {current_expiry})",
-                    "strike": strike,
-                    "ts": ts,
-                    "token": token
-                }
-                break
+            if result:
+                print(result)
+                if "✅ Eligible" in result:
+                    eligible_ce = f"{result} (Expiry {current_expiry})"
+                    break
 
-    # Fallback to next expiry if needed
+    # If PE not found, check next expiry
     if not eligible_pe and len(expiries) > 1:
         next_expiry = expiries[1]
+        print(f"\nNo eligible PE in {current_expiry}, checking next expiry: {next_expiry}")
         symbol_map = find_strikes_for_expiry(kite, next_expiry)
         for strike in PE_strikes:
             key = f"{strike}PE"
@@ -160,17 +171,16 @@ def calculate_nifty_options(kite, instrument_token):
                 ts = symbol_map[key]["tradingsymbol"]
                 token = symbol_map[key]["token"]
                 result = check_strike_eligibility(kite, ts, token, strike)
-                if result and "✅ Eligible" in result:
-                    eligible_pe = {
-                        "msg": f"{result} (Expiry {next_expiry})",
-                        "strike": strike,
-                        "ts": ts,
-                        "token": token
-                    }
-                    break
+                if result:
+                    print(result)
+                    if "✅ Eligible" in result:
+                        eligible_pe = f"{result} (Expiry {next_expiry})"
+                        break
 
+    # If CE not found, check next expiry
     if not eligible_ce and len(expiries) > 1:
         next_expiry = expiries[1]
+        print(f"\nNo eligible CE in {current_expiry}, checking next expiry: {next_expiry}")
         symbol_map = find_strikes_for_expiry(kite, next_expiry)
         for strike in CE_strikes:
             key = f"{strike}CE"
@@ -178,104 +188,68 @@ def calculate_nifty_options(kite, instrument_token):
                 ts = symbol_map[key]["tradingsymbol"]
                 token = symbol_map[key]["token"]
                 result = check_strike_eligibility(kite, ts, token, strike)
-                if result and "✅ Eligible" in result:
-                    eligible_ce = {
-                        "msg": f"{result} (Expiry {next_expiry})",
-                        "strike": strike,
-                        "ts": ts,
-                        "token": token
-                    }
-                    break
+                if result:
+                    print(result)
+                    if "✅ Eligible" in result:
+                        eligible_ce = f"{result} (Expiry {next_expiry})"
+                        break
 
     # Final Telegram message
     if eligible_pe or eligible_ce:
         msg = "📊 Eligible NIFTY Strikes\n"
-
         if eligible_ce:
             msg += f"{eligible_ce}\n"
-            ce_levels = calculate_strategy_levels_from_result(kite, eligible_ce, symbol_map, "CE")
-            if ce_levels:
-                print("CE Levels:", ce_levels)  # console log for debugging
-                msg += f"➡️ CE Entry: {ce_levels['Entry']}, Target: {ce_levels['Target']}, Stoploss: {ce_levels['Stoploss']}\n"
-
         if eligible_pe:
             msg += f"{eligible_pe}\n"
-            pe_levels = calculate_strategy_levels_from_result(kite, eligible_pe, symbol_map, "PE")
-            if pe_levels:
-                print("PE Levels:", pe_levels)  # console log for debugging
-                msg += f"➡️ PE Entry: {pe_levels['Entry']}, Target: {pe_levels['Target']}, Stoploss: {pe_levels['Stoploss']}\n"
-
         send_telegram_message(msg)
     else:
         send_telegram_message("❌ No eligible strikes found in current or next expiry")
 
-# ---------- Public entry point ----------
-def start_nifty_options():
-    kite = get_kite_instance()
-    if not kite:
-        send_telegram_message("❌ Kite login expired, please login again")
-        return
-
-    instrument_token = 256265  # Nifty index token
-    calculate_nifty_options(kite, instrument_token)
-
-# ---------- Strategy Calculation ----------
-def calculate_strategy_levels_from_result(kite, eligible_result, symbol_map, option_type):
+# ---------- New Implementation: Entry, Target, Stoploss ----------
+def calculate_entry_levels(kite, tradingsymbol, instrument_token, option_type="CE"):
     """
-    Calculate Entry, Target, and Stoploss levels for CE/PE based on last 2 days high/low.
-    eligible_result: the string you already store (e.g. "NIFTY26MAY23800CE => ... ✅ Eligible")
-    symbol_map: the expiry's symbol_map dict
-    option_type: "CE" or "PE"
+    Calculate entry, target, and stoploss for CE/PE strikes
     """
-    try:
-        # Extract strike from the eligible_result string
-        # Example: "NIFTY26MAY23800CE" -> 23800
-        parts = eligible_result.split("NIFTY")
-        if len(parts) < 2:
-            return None
-        suffix = parts[1]
-        strike_str = suffix.split(option_type)[0]
-        strike = int(''.join([c for c in strike_str if c.isdigit()]))
+    today = datetime.today().date()
+    from_date = today - timedelta(days=3)
 
-        key = f"{strike}{option_type}"
-        if key not in symbol_map:
-            return None
+    # Fetch last 2 days of historical data
+    data = kite.historical_data(instrument_token, from_date, today, "day")
+    df = pd.DataFrame(data)
+    df["date"] = pd.to_datetime(df["date"]).dt.date
+    df = df[df["date"] < today].sort_values(by="date", ascending=False)
 
-        ts = symbol_map[key]["tradingsymbol"]
-        token = symbol_map[key]["token"]
-
-        # Load last 2 days data
-        today = datetime.today().date()
-        from_date = today - timedelta(days=5)
-        data = kite.historical_data(token, from_date, today, "day")
-        df = pd.DataFrame(data)
-        df["date"] = pd.to_datetime(df["date"]).dt.date
-        df = df[df["date"] < today].sort_values(by="date", ascending=False)
-
-        if df.empty:
-            return None
-
-        opt_high = df.head(2)["high"].max()
-        opt_low = df.head(2)["low"].max()
-
-        # Entry
-        entry = round(opt_low * (1 - 0.10) / 0.05) * 0.05
-        # Target
-        target = entry * (1 - 0.75)
-        # Stoploss candidates
-        sla = entry * (1 + 0.75)
-        slb = opt_high * (1 + 0.10)
-        stoploss = min(sla, slb)
-
-        return {
-            "Option": f"{ts} ({option_type})",
-            "High2d": opt_high,
-            "Low2d": opt_low,
-            "Entry": round(entry, 2),
-            "Target": round(target, 2),
-            "Stoploss": round(stoploss, 2)
-        }
-
-    except Exception as e:
-        print(f"Strategy calculation failed: {e}")
+    if df.empty or len(df) < 2:
+        print(f"No sufficient data for {tradingsymbol}")
         return None
+
+    # 2-day high and low
+    two_day_high = df.head(2)["high"].max()
+    two_day_low = df.head(2)["low"].min()
+
+    # Entry calculation
+    entry = mround(two_day_low * (1 - 0.10), 0.05)
+    target = entry * (1 - 0.75)
+
+    slc1 = entry * (1 + 0.75)
+    slc2 = two_day_high * (1 + 0.10)
+    stoploss = min(slc1, slc2)
+
+    result = {
+        "Strike": tradingsymbol,
+        "OptionType": option_type,
+        "2D_HIGH": two_day_high,
+        "2D_LOW": two_day_low,
+        "ENTRY": entry,
+        "TARGET": target,
+        "STOPLOSS": stoploss
+    }
+
+    print(f"\nEntry Levels for {tradingsymbol} ({option_type})")
+    print(f"2D High: {two_day_high}")
+    print(f"2D Low: {two_day_low}")
+    print(f"Entry: {entry}")
+    print(f"Target: {target}")
+    print(f"Stoploss: {stoploss}\n")
+    send_telegram_message(result)
+    return result
