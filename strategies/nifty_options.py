@@ -97,11 +97,11 @@ def calculate_nifty_options(kite, instrument_token):
     BB = B * (1 - 0.0015)
 
     # ---------- Strike Anchors ----------
-    PE_END   = ceiling(AB, 50)   # nearest strike >= buffer high
-    PE_START = PE_END - (50 * 9) # derive start by stepping back 9 strikes
+    PE_END   = ceiling(AB, 50)
+    PE_START = PE_END - (50 * 9)
 
-    CE_END   = floor(BB, 50)     # nearest strike <= buffer low
-    CE_START = CE_END + (50 * 9) # derive start by stepping forward 9 strikes
+    CE_END   = floor(BB, 50)
+    CE_START = CE_END + (50 * 9)
 
     print("\nNifty")
     print(f"High of previous 2 days\t\t{A}")
@@ -132,9 +132,14 @@ def calculate_nifty_options(kite, instrument_token):
     symbol_map = find_strikes_for_expiry(kite, current_expiry)
 
     eligible_pe = None
-    eligible_ce = None
+    eligible_pe_ts = None
+    eligible_pe_token = None
 
-    # Loop through PE strikes in current expiry
+    eligible_ce = None
+    eligible_ce_ts = None
+    eligible_ce_token = None
+
+    # Loop through PE strikes
     for strike in PE_strikes:
         key = f"{strike}PE"
         if key in symbol_map:
@@ -145,9 +150,11 @@ def calculate_nifty_options(kite, instrument_token):
                 print(result)
                 if "✅ Eligible" in result:
                     eligible_pe = f"{result} (Expiry {current_expiry})"
+                    eligible_pe_ts = ts
+                    eligible_pe_token = token
                     break
 
-    # Loop through CE strikes in current expiry
+    # Loop through CE strikes
     for strike in CE_strikes:
         key = f"{strike}CE"
         if key in symbol_map:
@@ -158,6 +165,8 @@ def calculate_nifty_options(kite, instrument_token):
                 print(result)
                 if "✅ Eligible" in result:
                     eligible_ce = f"{result} (Expiry {current_expiry})"
+                    eligible_ce_ts = ts
+                    eligible_ce_token = token
                     break
 
     # If PE not found, check next expiry
@@ -175,6 +184,8 @@ def calculate_nifty_options(kite, instrument_token):
                     print(result)
                     if "✅ Eligible" in result:
                         eligible_pe = f"{result} (Expiry {next_expiry})"
+                        eligible_pe_ts = ts
+                        eligible_pe_token = token
                         break
 
     # If CE not found, check next expiry
@@ -192,6 +203,8 @@ def calculate_nifty_options(kite, instrument_token):
                     print(result)
                     if "✅ Eligible" in result:
                         eligible_ce = f"{result} (Expiry {next_expiry})"
+                        eligible_ce_ts = ts
+                        eligible_ce_token = token
                         break
 
     # Final Telegram message
@@ -201,16 +214,13 @@ def calculate_nifty_options(kite, instrument_token):
             msg += f"{eligible_ce}\n"
         if eligible_pe:
             msg += f"{eligible_pe}\n"
-        
-        # After confirming an eligible PE strike
-        if eligible_pe:
-            ts = symbol_map[f"{strike}PE"]["tradingsymbol"]
-            token = symbol_map[f"{strike}PE"]["token"]
 
-            pe_levels = calculate_entry_levels(kite, ts, token, option_type="PE")
+        # After confirming an eligible PE strike
+        if eligible_pe and eligible_pe_ts and eligible_pe_token:
+            pe_levels = calculate_entry_levels(kite, eligible_pe_ts, eligible_pe_token, option_type="PE")
             if pe_levels:
                 send_telegram_message(
-                    f"📉 Entry Levels for {ts}\n"
+                    f"📉 Entry Levels for {eligible_pe_ts}\n"
                     f"2D High: {pe_levels['2D_HIGH']}\n"
                     f"2D Low: {pe_levels['2D_LOW']}\n"
                     f"Entry: {pe_levels['ENTRY']}\n"
@@ -219,14 +229,11 @@ def calculate_nifty_options(kite, instrument_token):
                 )
 
         # After confirming an eligible CE strike
-        if eligible_ce:
-            ts = symbol_map[f"{strike}CE"]["tradingsymbol"]
-            token = symbol_map[f"{strike}CE"]["token"]
-
-            ce_levels = calculate_entry_levels(kite, ts, token, option_type="CE")
+        if eligible_ce and eligible_ce_ts and eligible_ce_token:
+            ce_levels = calculate_entry_levels(kite, eligible_ce_ts, eligible_ce_token, option_type="CE")
             if ce_levels:
                 send_telegram_message(
-                    f"📈 Entry Levels for {ts}\n"
+                    f"📈 Entry Levels for {eligible_ce_ts}\n"
                     f"2D High: {ce_levels['2D_HIGH']}\n"
                     f"2D Low: {ce_levels['2D_LOW']}\n"
                     f"Entry: {ce_levels['ENTRY']}\n"
@@ -235,7 +242,7 @@ def calculate_nifty_options(kite, instrument_token):
                 )
 
         send_telegram_message(msg)
-        
+
     else:
         send_telegram_message("❌ No eligible strikes found in current or next expiry")
 
