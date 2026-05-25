@@ -4,6 +4,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 from brokers.kite_connect import get_kite_instance, generate_login_url
 from strategies.gold_price import calculate_gold_strategy
 from strategies.silver_price import calculate_silver_strategy
+from strategies.nifty_options import calculate_nifty_options   # ✅ Import your NIFTY strategy
 from tele.telegram_alert import send_telegram_message
 from dotenv import load_dotenv
 
@@ -85,6 +86,21 @@ async def run_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"❌ Strategy run error: {e}")
 
+# ✅ NEW NIFTY COMMAND
+async def nifty_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    kite = get_kite_instance()
+    if not kite:
+        await update.message.reply_text("❌ Kite login expired")
+        send_login_link()
+        return
+    try:
+        # Call your NIFTY strategy
+        instrument_token = 256265  # Nifty index token
+        calculate_nifty_options(kite, instrument_token)
+        await update.message.reply_text("📊 NIFTY strategy executed. Levels sent to Telegram.")
+    except Exception as e:
+        await update.message.reply_text(f"❌ Nifty strategy error: {e}")
+
 # =========================================
 # ERROR HANDLER
 # =========================================
@@ -102,8 +118,8 @@ def start_bot(use_signals=False):
     app.add_handler(CommandHandler("gold", gold_command))
     app.add_handler(CommandHandler("silver", silver_command))
     app.add_handler(CommandHandler("run", run_command))
+    app.add_handler(CommandHandler("nifty", nifty_command))   # ✅ Register new command
     app.add_error_handler(error_handler)
 
     print("🤖 Telegram bot running...")
-    # Disable signal handling when running in a thread
     app.run_polling(drop_pending_updates=True, stop_signals=() if not use_signals else None)
