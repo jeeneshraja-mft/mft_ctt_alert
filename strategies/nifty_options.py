@@ -253,3 +253,12 @@ def calculate_entry_levels(kite, tradingsymbol, instrument_token, option_type="C
     print(f"Stoploss: {stoploss}\n")
     send_telegram_message(result)
     return result
+
+def start_nifty_options():
+    kite = get_kite_instance()
+    if not kite:
+        send_telegram_message("❌ Kite login expired, please login again")
+        return
+
+    instrument_token = 256265  # Nifty index token
+    calculate_nifty_options(kite, instrument_token)
