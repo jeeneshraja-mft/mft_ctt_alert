@@ -79,10 +79,21 @@ async def run_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         send_login_link()
         return
     try:
+        # Run gold and silver strategies
         gold = calculate_gold_strategy(kite)
         silver = calculate_silver_strategy(kite)
+
+        # Run nifty strategy
+        instrument_token = 256265  # Nifty index token
+        calculate_nifty_options(kite, instrument_token)
+
+        # Reply inline for gold and silver
         await update.message.reply_text(format_message(gold, "🟡 GOLD"))
         await update.message.reply_text(format_message(silver, "⚪ SILVER"))
+
+        # Nifty strategy already sends its own detailed Telegram messages
+        await update.message.reply_text("📊 NIFTY strategy executed. Levels sent to Telegram.")
+
     except Exception as e:
         await update.message.reply_text(f"❌ Strategy run error: {e}")
 
