@@ -241,7 +241,7 @@ def calculate_nifty_options(kite, instrument_token):
 
 
 # ---------- New Implementation: Entry, Target, Stoploss ----------
-def calculate_entry_levels(kite, tradingsymbol, instrument_token, option_type="CE"):
+def calculate_entry_levels(kite, tradingsymbol, instrument_token, option_type):
     """
     Calculate entry, target, and stoploss for CE/PE strikes
     """
@@ -249,40 +249,21 @@ def calculate_entry_levels(kite, tradingsymbol, instrument_token, option_type="C
     today = datetime.today().date()
     from_date = today - timedelta(days=3)
 
-    # --- Step 1: Check today's live quote data ---
-    try:
-        quote = kite.quote([f"NFO:{tradingsymbol}"])
-        last_price = quote[f"NFO:{tradingsymbol}"]["last_price"]
-        ohlc = quote[f"NFO:{tradingsymbol}"]["ohlc"]
-
-        print(f"Today {tradingsymbol} Last Price: {last_price}")
-        print(f"Today OHLC: {ohlc}")
-    except Exception as e:
-        print(f"Quote fetch failed for {tradingsymbol}: {e}")
-
-    # --- Step 2: Historical data (daily candles) ---
+    # Historical data (daily candles)
     data = kite.historical_data(instrument_token, from_date, today, "day")
     df = pd.DataFrame(data)
     df["date"] = pd.to_datetime(df["date"]).dt.date
-
-    # ORIGINAL FILTER (commented out)
-    # df = df[df["date"] < today].sort_values(by="date", ascending=False)
-    # if df.empty or len(df) < 2:
-    #     print(f"No sufficient data for {tradingsymbol}")
-    #     return None
-
-    # NEW FILTER: include today’s candle, sort descending
     df = df.sort_values(by="date", ascending=False)
 
     if df.empty:
-        print(f"No data for {tradingsymbol}")
+        send_telegram_message(f"⚠️ No data for {tradingsymbol}")
         return None
 
-    # Use min(2, len(df)) so it works with 1 or 2 days
+    # Use up to 2 most recent days (including today)
     two_day_high = df.head(min(2, len(df)))["high"].max()
     two_day_low  = df.head(min(2, len(df)))["low"].min()
 
-    # --- Step 3: Entry/Target/Stoploss calculations ---
+    # Entry/Target/Stoploss calculations
     entry    = mround(two_day_low * (1 - 0.10), 0.05)
     target   = entry * (1 - 0.75)
     slc1     = entry * (1 + 0.75)
@@ -299,12 +280,15 @@ def calculate_entry_levels(kite, tradingsymbol, instrument_token, option_type="C
         "STOPLOSS": stoploss
     }
 
-    print(f"\nEntry Levels for {tradingsymbol} ({option_type})")
-    print(f"2D High: {two_day_high}")
-    print(f"2D Low: {two_day_low}")
-    print(f"Entry: {entry}")
-    print(f"Target: {target}")
-    print(f"Stoploss: {stoploss}\n")
+    # Send levels to Telegram
+    send_telegram_message(
+        f"📊 Entry Levels for {tradingsymbol} ({option_type})\n"
+        f"2D High: {two_day_high}\n"
+        f"2D Low: {two_day_low}\n"
+        f"Entry: {entry}\n"
+        f"Target: {target}\n"
+        f"Stoploss: {stoploss}"
+    )
 
     return result
 
