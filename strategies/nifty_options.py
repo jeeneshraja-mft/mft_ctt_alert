@@ -241,7 +241,7 @@ def calculate_nifty_options(kite, instrument_token):
 
 
 # ---------- New Implementation: Entry, Target, Stoploss ----------
-def calculate_entry_levels(kite, tradingsymbol, instrument_token, option_type="CE"):
+def calculate_entry_levels(kite, tradingsymbol, instrument_token, option_type):
     """
     Calculate entry, target, and stoploss for CE/PE strikes
     """
