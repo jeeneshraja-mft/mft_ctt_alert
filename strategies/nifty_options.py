@@ -201,9 +201,44 @@ def calculate_nifty_options(kite, instrument_token):
             msg += f"{eligible_ce}\n"
         if eligible_pe:
             msg += f"{eligible_pe}\n"
+        
+        # After confirming an eligible PE strike
+        if eligible_pe:
+            ts = symbol_map[f"{strike}PE"]["tradingsymbol"]
+            token = symbol_map[f"{strike}PE"]["token"]
+
+            pe_levels = calculate_entry_levels(kite, ts, token, option_type="PE")
+            if pe_levels:
+                send_telegram_message(
+                    f"📉 Entry Levels for {ts}\n"
+                    f"2D High: {pe_levels['2D_HIGH']}\n"
+                    f"2D Low: {pe_levels['2D_LOW']}\n"
+                    f"Entry: {pe_levels['ENTRY']}\n"
+                    f"Target: {pe_levels['TARGET']}\n"
+                    f"Stoploss: {pe_levels['STOPLOSS']}"
+                )
+
+        # After confirming an eligible CE strike
+        if eligible_ce:
+            ts = symbol_map[f"{strike}CE"]["tradingsymbol"]
+            token = symbol_map[f"{strike}CE"]["token"]
+
+            ce_levels = calculate_entry_levels(kite, ts, token, option_type="CE")
+            if ce_levels:
+                send_telegram_message(
+                    f"📈 Entry Levels for {ts}\n"
+                    f"2D High: {ce_levels['2D_HIGH']}\n"
+                    f"2D Low: {ce_levels['2D_LOW']}\n"
+                    f"Entry: {ce_levels['ENTRY']}\n"
+                    f"Target: {ce_levels['TARGET']}\n"
+                    f"Stoploss: {ce_levels['STOPLOSS']}"
+                )
+
         send_telegram_message(msg)
+        
     else:
         send_telegram_message("❌ No eligible strikes found in current or next expiry")
+
 
 # ---------- New Implementation: Entry, Target, Stoploss ----------
 def calculate_entry_levels(kite, tradingsymbol, instrument_token, option_type="CE"):
@@ -251,7 +286,6 @@ def calculate_entry_levels(kite, tradingsymbol, instrument_token, option_type="C
     print(f"Entry: {entry}")
     print(f"Target: {target}")
     print(f"Stoploss: {stoploss}\n")
-    send_telegram_message(result)
     return result
 
 def start_nifty_options():
