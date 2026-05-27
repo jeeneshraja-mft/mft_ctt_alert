@@ -1,6 +1,7 @@
 import pandas as pd
 from datetime import datetime, timedelta
 import math
+import time
 from kiteconnect import KiteConnect
 from config.config import API_KEY
 from tele.telegram_alert import send_telegram_message
@@ -58,12 +59,26 @@ def find_strikes_for_expiry(kite, expiry):
     return symbol_map
 
 # ---------- Strike Eligibility ----------
+
 def check_strike_eligibility(kite, tradingsymbol, instrument_token, strike, threshold_oi=35000):
     today = datetime.today().date()
     from_date = today - timedelta(days=5)
 
     try:
-        data = kite.historical_data(instrument_token, from_date, today, "day")
+        # Retry loop for historical data
+        data = None
+        for attempt in range(3):
+            try:
+                data = kite.historical_data(instrument_token, from_date, today, "day")
+                break
+            except Exception as e:
+                print(f"Attempt {attempt+1} failed fetching historical data for {tradingsymbol}: {e}")
+                if attempt < 2:
+                    time.sleep(5)
+        if data is None:
+            print(f"❌ Skipping {tradingsymbol} after 3 failed attempts (historical data)")
+            return None
+
         df = pd.DataFrame(data)
         df["date"] = pd.to_datetime(df["date"]).dt.date
         df = df[df["date"] < today].sort_values(by="date", ascending=False)
@@ -74,17 +89,30 @@ def check_strike_eligibility(kite, tradingsymbol, instrument_token, strike, thre
         low2 = df.head(2)["low"].min()
         threshold = strike * 0.0085
 
-        quote = kite.quote([f"NFO:{tradingsymbol}"])
+        # Retry loop for quote
+        quote = None
+        for attempt in range(3):
+            try:
+                quote = kite.quote([f"NFO:{tradingsymbol}"])
+                break
+            except Exception as e:
+                print(f"Attempt {attempt+1} failed fetching quote for {tradingsymbol}: {e}")
+                if attempt < 2:
+                    time.sleep(5)
+        if quote is None:
+            print(f"❌ Skipping {tradingsymbol} after 3 failed attempts (quote)")
+            return None
+
         oi = quote[f"NFO:{tradingsymbol}"]["oi"]
 
         eligible = (oi >= threshold_oi) and (low2 > threshold)
-
         status = "✅ Eligible" if eligible else "❌ Not Eligible"
         return f"{tradingsymbol} => {threshold:.2f} (0.85%) => {low2} (2d low) => {oi} (OI) => {status}"
 
     except Exception as e:
         print(f"Eligibility check failed for {tradingsymbol}: {e}")
         return None
+
 
 # ---------- Calculate Nifty Option Strikes ----------
 def calculate_nifty_options(kite, instrument_token):
