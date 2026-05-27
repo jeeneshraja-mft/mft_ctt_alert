@@ -9,7 +9,12 @@ from kiteconnect import KiteTicker, KiteConnect
 from config.config import API_KEY
 from database.db_connect import load_token, save_nifty_strategy
 from tele.telegram_alert import send_telegram_message
-from nifty_options import get_all_expiries, find_strikes_for_expiry, check_strike_eligibility, calculate_entry_levels
+from strategies.nifty_options import (
+    get_all_expiries,
+    find_strikes_for_expiry,
+    check_strike_eligibility,
+    calculate_entry_levels,
+)
 
 load_dotenv()
 SUPABASE_DSN = os.getenv("SUPABASE_DSN")
