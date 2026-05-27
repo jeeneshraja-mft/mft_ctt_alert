@@ -147,13 +147,14 @@ def save_nifty_strategy(data):
     conn = psycopg2.connect(dsn=SUPABASE_DSN, sslmode="require")
     cur = conn.cursor()
 
-    # Ensure table exists with token column
+    # Ensure table exists with token + readable_name columns
     cur.execute("""
         CREATE TABLE IF NOT EXISTS nifty_strategy (
             id SERIAL PRIMARY KEY,
             strategy_date DATE NOT NULL,
             tradingsymbol TEXT NOT NULL,
-            token BIGINT,                  -- ✅ new column
+            readable_name TEXT,             -- ✅ new column
+            token BIGINT,
             option_type TEXT NOT NULL,
             two_day_high NUMERIC,
             two_day_low NUMERIC,
@@ -166,7 +167,7 @@ def save_nifty_strategy(data):
 
     # 🔍 Check if record already exists for same date + symbol + option_type
     cur.execute("""
-        SELECT two_day_high, two_day_low, entry, target, stoploss, token
+        SELECT two_day_high, two_day_low, entry, target, stoploss, token, readable_name
         FROM nifty_strategy
         WHERE strategy_date = %s
           AND tradingsymbol = %s
@@ -184,26 +185,29 @@ def save_nifty_strategy(data):
             "TARGET": float(row[3]),
             "STOPLOSS": float(row[4]),
             "TOKEN": row[5],
+            "READABLE_NAME": row[6],
         }
         # If identical, skip insert
         if all(round(data[k]) == round(existing[k]) for k in ["2D_HIGH","2D_LOW","ENTRY","TARGET","STOPLOSS"]) \
-           and data.get("token") == existing["TOKEN"]:
+           and data.get("token") == existing["TOKEN"] \
+           and data.get("readable_name") == existing["READABLE_NAME"]:
             print(f"⚪ Nifty strategy unchanged for {data['tradingsymbol']} — not saving duplicate")
             cur.close()
             conn.close()
             return False
 
-    # ✅ Insert new record with token
+    # ✅ Insert new record with token + readable_name
     cur.execute("""
         INSERT INTO nifty_strategy (
-            strategy_date, tradingsymbol, token, option_type,
+            strategy_date, tradingsymbol, readable_name, token, option_type,
             two_day_high, two_day_low, entry, target, stoploss
         )
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
     """, (
         data["strategy_date"],
         data["tradingsymbol"],
-        data.get("token"),   # ✅ include token
+        data.get("readable_name"),   # ✅ include readable_name
+        data.get("token"),
         data["option_type"],
         float(data["2D_HIGH"]),
         float(data["2D_LOW"]),
@@ -215,5 +219,5 @@ def save_nifty_strategy(data):
     conn.commit()
     cur.close()
     conn.close()
-    print(f"✅ Nifty strategy saved for {data['tradingsymbol']}")
+    print(f"✅ Nifty strategy saved for {data['readable_name']}")
     return True
