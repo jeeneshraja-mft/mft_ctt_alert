@@ -1,15 +1,25 @@
 import psycopg2
 import os
 import time
+import math
+import pandas as pd
 from datetime import datetime
 from dotenv import load_dotenv
-from kiteconnect import KiteTicker
+from kiteconnect import KiteTicker, KiteConnect
 from config.config import API_KEY
-from database.db_connect import load_token
+from database.db_connect import load_token, save_nifty_strategy
 from tele.telegram_alert import send_telegram_message
+from nifty_options import get_all_expiries, find_strikes_for_expiry, check_strike_eligibility, calculate_entry_levels
 
 load_dotenv()
 SUPABASE_DSN = os.getenv("SUPABASE_DSN")
+
+# ---------- Utility ----------
+def mround(value, base=1):
+    return round(value / base) * base
+
+def ceiling(value, base=50):
+    return int(math.ceil(value / base) * base)
 
 # ---------- Fetch today's CE/PE strikes ----------
 def fetch_today_tokens():
@@ -37,6 +47,77 @@ def fetch_today_tokens():
         for row in rows if row[0]
     ]
 
+# ---------- Recalculate PE levels after breach ----------
+def recalc_pe_levels(kite):
+    try:
+        # Get today's Nifty spot high till 9:30
+        instrument_token = 256265  # Nifty index token
+        today = datetime.today().date()
+        data = kite.historical_data(instrument_token, today, today, "minute")
+        df = pd.DataFrame(data)
+        df["date"] = pd.to_datetime(df["date"])
+        df = df[df["date"].dt.time <= datetime.strptime("09:30", "%H:%M").time()]
+
+        if df.empty:
+            print("⚠️ No intraday data available for Nifty till 9:30")
+            return
+
+        todays_high = df["high"].max()
+        buffer_high = mround(todays_high * (1 + 0.00125), 1)  # 0.125%
+        pe_end_strike = ceiling(buffer_high, 50)
+
+        # Build PE strike list from pe_end_strike downwards
+        PE_strikes = list(range(pe_end_strike, pe_end_strike - (50 * 9), -50))
+        PE_strikes.reverse()
+
+        # Expiry fallback: current → next → next-to-next
+        expiries = get_all_expiries(kite)
+        if not expiries:
+            return
+
+        eligible_pe_ts = None
+        eligible_pe_token = None
+
+        for expiry_index in range(min(3, len(expiries))):
+            expiry = expiries[expiry_index]
+            print(f"🔍 Checking expiry {expiry} for recalculated PE strike")
+            symbol_map = find_strikes_for_expiry(kite, expiry)
+
+            for strike in PE_strikes:
+                key = f"{strike}PE"
+                if key in symbol_map:
+                    ts = symbol_map[key]["tradingsymbol"]
+                    token = symbol_map[key]["token"]
+                    result = check_strike_eligibility(kite, ts, token, strike)
+                    if result and "✅ Eligible" in result:
+                        eligible_pe_ts = ts
+                        eligible_pe_token = token
+                        break
+
+            if eligible_pe_ts and eligible_pe_token:
+                break  # ✅ stop once found
+
+        if eligible_pe_ts and eligible_pe_token:
+            pe_levels = calculate_entry_levels(kite, eligible_pe_ts, eligible_pe_token, option_type="PE")
+            if pe_levels:
+                send_telegram_message(
+                    f"🔄 Recalculated PE Levels for {eligible_pe_ts}\n"
+                    f"2D High: {pe_levels['2D_HIGH']}\n"
+                    f"2D Low: {pe_levels['2D_LOW']}\n"
+                    f"Entry: {pe_levels['ENTRY']}\n"
+                    f"Target: {pe_levels['TARGET']}\n"
+                    f"Stoploss: {pe_levels['STOPLOSS']}"
+                )
+                save_nifty_strategy({
+                    "strategy_date": datetime.today().date(),
+                    "tradingsymbol": eligible_pe_ts,
+                    "token": eligible_pe_token,
+                    "option_type": "PE",
+                    **pe_levels
+                })
+    except Exception as e:
+        print(f"❌ Error in PE recalculation: {e}")
+
 # ---------- Tick Stream ----------
 def start_tick_stream():
     access_token = load_token()
@@ -52,9 +133,9 @@ def start_tick_stream():
         return
 
     kws = KiteTicker(API_KEY, access_token)
-
-    # Track last alert time per symbol to throttle
     last_alert_time = {}
+    kite = KiteConnect(api_key=API_KEY)
+    kite.set_access_token(access_token)
 
     def on_ticks(ws, ticks):
         now = datetime.now()
@@ -89,6 +170,10 @@ def start_tick_stream():
                             f"{ts} crossed entry {entry} → LTP {ltp}"
                         )
                         last_alert_time[ts] = now
+
+                        # If PE breached, trigger recalculation
+                        if opt_type == "PE":
+                            recalc_pe_levels(kite)
 
     def on_connect(ws, _response):
         print("✅ Tick WebSocket connected")
