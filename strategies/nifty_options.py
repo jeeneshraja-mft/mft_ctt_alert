@@ -235,6 +235,44 @@ def calculate_nifty_options(kite, instrument_token):
                         eligible_ce_ts = ts
                         eligible_ce_token = token
                         break
+    
+    # If PE still not found, check next-to-next expiry
+    if not eligible_pe and len(expiries) > 2:
+        next_to_next_expiry = expiries[2]
+        print(f"\nNo eligible PE in {current_expiry} or {expiries[1]}, checking next-to-next expiry: {next_to_next_expiry}")
+        symbol_map = find_strikes_for_expiry(kite, next_to_next_expiry)
+        for strike in PE_strikes:
+            key = f"{strike}PE"
+            if key in symbol_map:
+                ts = symbol_map[key]["tradingsymbol"]
+                token = symbol_map[key]["token"]
+                result = check_strike_eligibility(kite, ts, token, strike)
+                if result:
+                    print(result)
+                    if "✅ Eligible" in result:
+                        eligible_pe = f"{result} (Expiry {next_to_next_expiry})"
+                        eligible_pe_ts = ts
+                        eligible_pe_token = token
+                        break
+
+    # If CE still not found, check next-to-next expiry
+    if not eligible_ce and len(expiries) > 2:
+        next_to_next_expiry = expiries[2]
+        print(f"\nNo eligible CE in {current_expiry} or {expiries[1]}, checking next-to-next expiry: {next_to_next_expiry}")
+        symbol_map = find_strikes_for_expiry(kite, next_to_next_expiry)
+        for strike in CE_strikes:
+            key = f"{strike}CE"
+            if key in symbol_map:
+                ts = symbol_map[key]["tradingsymbol"]
+                token = symbol_map[key]["token"]
+                result = check_strike_eligibility(kite, ts, token, strike)
+                if result:
+                    print(result)
+                    if "✅ Eligible" in result:
+                        eligible_ce = f"{result} (Expiry {next_to_next_expiry})"
+                        eligible_ce_ts = ts
+                        eligible_ce_token = token
+                        break
 
     # Final Telegram message
     if eligible_pe or eligible_ce:
