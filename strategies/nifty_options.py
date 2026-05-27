@@ -293,9 +293,11 @@ def calculate_nifty_options(kite, instrument_token):
                 save_nifty_strategy({
                     "strategy_date": datetime.today().date(),
                     "tradingsymbol": eligible_pe_ts,
+                    "token": eligible_pe_token,   # ✅ include token
                     "option_type": "PE",
                     **pe_levels
                 })
+
 
         # After confirming an eligible CE strike
         if eligible_ce and eligible_ce_ts and eligible_ce_token:
@@ -313,9 +315,11 @@ def calculate_nifty_options(kite, instrument_token):
                 save_nifty_strategy({
                     "strategy_date": datetime.today().date(),
                     "tradingsymbol": eligible_ce_ts,
+                    "token": eligible_ce_token,   # ✅ include token
                     "option_type": "CE",
                     **ce_levels
                 })
+
 
 
     else:
