@@ -1,20 +1,39 @@
+import psycopg2
+import os
+from dotenv import load_dotenv
 from kiteconnect import KiteTicker
 from config.config import API_KEY
 from database.db_connect import load_token
 
-def start_tick_stream(instrument_tokens=None):
-    """
-    Start KiteTicker stream and print ticks to console.
-    """
+load_dotenv()
+SUPABASE_DSN = os.getenv("SUPABASE_DSN")
+
+def fetch_today_tokens():
+    """Fetch instrument tokens for today's CE/PE strikes from DB"""
+    conn = psycopg2.connect(dsn=SUPABASE_DSN, sslmode="require")
+    cur = conn.cursor()
+    today = datetime.today().date()
+    cur.execute("""
+        SELECT instrument_token
+        FROM nifty_strategy
+        WHERE strategy_date = %s
+    """, (today,))
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return [row[0] for row in rows]
+
+def start_tick_stream():
     access_token = load_token()
     if not access_token:
         print("❌ No access token found, please login again")
         return
 
-    if instrument_tokens is None:
-        instrument_tokens = [256265]  # Default: Nifty index token
+    instrument_tokens = fetch_today_tokens()
+    if not instrument_tokens:
+        print("⚠️ No CE/PE tokens found in DB for today")
+        return
 
-    # ✅ Pass API_KEY and access_token directly
     kws = KiteTicker(API_KEY, access_token)
 
     def on_ticks(ws, ticks):
