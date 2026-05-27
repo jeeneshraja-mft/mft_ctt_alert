@@ -1,20 +1,21 @@
 from kiteconnect import KiteTicker
-from brokers.kite_connect import get_kite_instance
+from config.config import API_KEY
+from database.db_connect import load_token
 
 def start_tick_stream(instrument_tokens=None):
     """
     Start KiteTicker stream and print ticks to console.
-    instrument_tokens: list of instrument tokens to subscribe (default Nifty index)
     """
-    kite = get_kite_instance()
-    if not kite:
-        print("❌ Kite session invalid, cannot start tick stream")
+    access_token = load_token()
+    if not access_token:
+        print("❌ No access token found, please login again")
         return
 
     if instrument_tokens is None:
         instrument_tokens = [256265]  # Default: Nifty index token
 
-    kws = KiteTicker(kite._api_key, kite._access_token)
+    # ✅ Pass API_KEY and access_token directly
+    kws = KiteTicker(API_KEY, access_token)
 
     def on_ticks(ws, ticks):
         for tick in ticks:
