@@ -146,6 +146,7 @@ def save_silver_strategy(data):
 def save_nifty_strategy(data):
     conn = psycopg2.connect(dsn=SUPABASE_DSN, sslmode="require")
     cur = conn.cursor()
+
     cur.execute("""
         CREATE TABLE IF NOT EXISTS nifty_strategy (
             id SERIAL PRIMARY KEY,
@@ -160,6 +161,8 @@ def save_nifty_strategy(data):
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+
+    # 🔑 Cast numpy types to native Python float
     cur.execute("""
         INSERT INTO nifty_strategy (
             strategy_date, tradingsymbol, option_type,
@@ -167,11 +170,19 @@ def save_nifty_strategy(data):
         )
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
     """, (
-        data["strategy_date"], data["tradingsymbol"], data["option_type"],
-        data["2D_HIGH"], data["2D_LOW"], data["ENTRY"], data["TARGET"], data["STOPLOSS"]
+        data["strategy_date"],
+        data["tradingsymbol"],
+        data["option_type"],
+        float(data["2D_HIGH"]),
+        float(data["2D_LOW"]),
+        float(data["ENTRY"]),
+        float(data["TARGET"]),
+        float(data["STOPLOSS"])
     ))
+
     conn.commit()
     cur.close()
     conn.close()
     print(f"✅ Nifty strategy saved for {data['tradingsymbol']}")
     return True
+
