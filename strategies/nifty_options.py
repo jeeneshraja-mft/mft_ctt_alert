@@ -3,8 +3,9 @@ from datetime import datetime, timedelta
 import math
 from kiteconnect import KiteConnect
 from config.config import API_KEY
-from database.db_connect import load_token
 from tele.telegram_alert import send_telegram_message
+from database.db_connect import load_token, save_nifty_strategy
+
 
 # ---------- Get Kite Instance ----------
 def get_kite_instance():
@@ -222,6 +223,13 @@ def calculate_nifty_options(kite, instrument_token):
                     f"Target: {pe_levels['TARGET']}\n"
                     f"Stoploss: {pe_levels['STOPLOSS']}"
                 )
+                # ✅ Save to DB
+                save_nifty_strategy({
+                    "strategy_date": datetime.today().date(),
+                    "tradingsymbol": eligible_pe_ts,
+                    "option_type": "PE",
+                    **pe_levels
+                })
 
         # After confirming an eligible CE strike
         if eligible_ce and eligible_ce_ts and eligible_ce_token:
@@ -235,6 +243,14 @@ def calculate_nifty_options(kite, instrument_token):
                     f"Target: {ce_levels['TARGET']}\n"
                     f"Stoploss: {ce_levels['STOPLOSS']}"
                 )
+                # ✅ Save to DB
+                save_nifty_strategy({
+                    "strategy_date": datetime.today().date(),
+                    "tradingsymbol": eligible_ce_ts,
+                    "option_type": "CE",
+                    **ce_levels
+                })
+
 
     else:
         send_telegram_message("❌ No eligible strikes found in current or next expiry")

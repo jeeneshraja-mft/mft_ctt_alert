@@ -2,7 +2,6 @@ import os
 import psycopg2
 from dotenv import load_dotenv
 
-
 load_dotenv()
 SUPABASE_DSN = os.getenv("SUPABASE_DSN")
 
@@ -10,8 +9,6 @@ def save_token(access_token, expiry=None):
     print("SUPABASE_DSN at runtime:", SUPABASE_DSN)
     conn = psycopg2.connect(dsn=SUPABASE_DSN, sslmode="require")
     cur = conn.cursor()
-
-    # Ensure table exists with expiry column
     cur.execute("""
         CREATE TABLE IF NOT EXISTS kite_tokens (
             id SERIAL PRIMARY KEY,
@@ -20,17 +17,13 @@ def save_token(access_token, expiry=None):
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
-
     if expiry is None:
-        # Default expiry ~23 hours from now if not provided
         from datetime import datetime, timedelta
         expiry = datetime.utcnow() + timedelta(hours=23)
-
     cur.execute("""
         INSERT INTO kite_tokens (access_token, expiry)
         VALUES (%s, %s)
     """, (access_token, expiry))
-
     conn.commit()
     cur.close()
     conn.close()
@@ -38,27 +31,22 @@ def save_token(access_token, expiry=None):
 def load_token():
     conn = psycopg2.connect(dsn=SUPABASE_DSN, sslmode="require")
     cur = conn.cursor()
-
     cur.execute("""
         SELECT access_token, expiry
         FROM kite_tokens
         ORDER BY created_at DESC
         LIMIT 1
     """)
-
     row = cur.fetchone()
     cur.close()
     conn.close()
-
     if row:
-        return row[0]  # access_token
+        return row[0]
     return None
 
 def save_gold_strategy(data):
     conn = psycopg2.connect(dsn=SUPABASE_DSN, sslmode="require")
     cur = conn.cursor()
-
-    # Check if a record exists for today
     cur.execute("""
         SELECT *
         FROM gold_strategy
@@ -66,11 +54,8 @@ def save_gold_strategy(data):
         ORDER BY created_at DESC
         LIMIT 1
     """, (data["strategy_date"],))
-
     row = cur.fetchone()
-
     if row:
-        # Compare values with existing record
         existing = {
             "buy_entry": row[3],
             "buy_target": row[4],
@@ -83,15 +68,11 @@ def save_gold_strategy(data):
             "sell_sl1": row[11],
             "sell_sl2": row[12],
         }
-
-        # If identical, skip insert
         if all(data[k] == existing[k] for k in existing):
             print("⚪ Gold strategy unchanged — not saving duplicate")
             cur.close()
             conn.close()
             return False
-
-    # Insert new record
     cur.execute("""
         INSERT INTO gold_strategy (
             strategy_date, tradingsymbol,
@@ -106,7 +87,6 @@ def save_gold_strategy(data):
         data["sell_entry"], data["sell_target"], data["sell_target2"],
         data["sell_sl1"], data["sell_sl2"]
     ))
-
     conn.commit()
     cur.close()
     conn.close()
@@ -116,8 +96,6 @@ def save_gold_strategy(data):
 def save_silver_strategy(data):
     conn = psycopg2.connect(dsn=SUPABASE_DSN, sslmode="require")
     cur = conn.cursor()
-
-    # Check if a record exists for today
     cur.execute("""
         SELECT *
         FROM silver_strategy
@@ -125,9 +103,7 @@ def save_silver_strategy(data):
         ORDER BY created_at DESC
         LIMIT 1
     """, (data["strategy_date"],))
-
     row = cur.fetchone()
-
     if row:
         existing = {
             "buy_entry": row[3],
@@ -141,15 +117,11 @@ def save_silver_strategy(data):
             "sell_sl1": row[11],
             "sell_sl2": row[12],
         }
-
-        # If identical, skip insert
         if all(data[k] == existing[k] for k in existing):
             print("⚪ Silver strategy unchanged — not saving duplicate")
             cur.close()
             conn.close()
             return False
-
-    # Insert new record
     cur.execute("""
         INSERT INTO silver_strategy (
             strategy_date, tradingsymbol,
@@ -164,9 +136,42 @@ def save_silver_strategy(data):
         data["sell_entry"], data["sell_target"], data["sell_target2"],
         data["sell_sl1"], data["sell_sl2"]
     ))
-
     conn.commit()
     cur.close()
     conn.close()
     print("✅ Silver strategy saved to DB")
+    return True
+
+# ---------- NEW: Save Nifty Strategy ----------
+def save_nifty_strategy(data):
+    conn = psycopg2.connect(dsn=SUPABASE_DSN, sslmode="require")
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS nifty_strategy (
+            id SERIAL PRIMARY KEY,
+            strategy_date DATE NOT NULL,
+            tradingsymbol TEXT NOT NULL,
+            option_type TEXT NOT NULL,
+            two_day_high NUMERIC,
+            two_day_low NUMERIC,
+            entry NUMERIC,
+            target NUMERIC,
+            stoploss NUMERIC,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cur.execute("""
+        INSERT INTO nifty_strategy (
+            strategy_date, tradingsymbol, option_type,
+            two_day_high, two_day_low, entry, target, stoploss
+        )
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+    """, (
+        data["strategy_date"], data["tradingsymbol"], data["option_type"],
+        data["2D_HIGH"], data["2D_LOW"], data["ENTRY"], data["TARGET"], data["STOPLOSS"]
+    ))
+    conn.commit()
+    cur.close()
+    conn.close()
+    print(f"✅ Nifty strategy saved for {data['tradingsymbol']}")
     return True
