@@ -203,6 +203,7 @@ def calculate_nifty_options(kite, instrument_token):
                     eligible_ce = f"{result} (Expiry {current_expiry})"
                     eligible_ce_ts = ts
                     eligible_ce_token = token
+                    eligible_ce_name = readable_name   # ✅ store name
                     break
 
     # If PE not found, check next expiry
@@ -223,6 +224,7 @@ def calculate_nifty_options(kite, instrument_token):
                         eligible_pe = f"{result} (Expiry {next_expiry})"
                         eligible_pe_ts = ts
                         eligible_pe_token = token
+                        eligible_pe_name = readable_name
                         break
 
     # If CE not found, check next expiry
@@ -243,6 +245,7 @@ def calculate_nifty_options(kite, instrument_token):
                         eligible_ce = f"{result} (Expiry {next_expiry})"
                         eligible_ce_ts = ts
                         eligible_ce_token = token
+                        eligible_ce_name = readable_name   # ✅ store name
                         break
     
     # If PE still not found, check next-to-next expiry
