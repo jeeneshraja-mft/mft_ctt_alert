@@ -123,6 +123,75 @@ def recalc_pe_levels(kite):
     except Exception as e:
         print(f"❌ Error in PE recalculation: {e}")
 
+# ---------- Recalculate CE levels after breach ----------
+def recalc_ce_levels(kite):
+    try:
+        instrument_token = 256265  # Nifty index token
+        today = datetime.today().date()
+        data = kite.historical_data(instrument_token, today, today, "minute")
+        df = pd.DataFrame(data)
+        df["date"] = pd.to_datetime(df["date"])
+        df = df[df["date"].dt.time <= datetime.strptime("09:30", "%H:%M").time()]
+
+        if df.empty:
+            print("⚠️ No intraday data available for Nifty till 9:30")
+            return
+
+        todays_low = df["low"].min()
+        buffer_low = mround(todays_low * (1 - 0.00125), 1)  # 0.125% below
+        ce_end_strike = floor(buffer_low, 50)
+
+        # Build CE strike list upwards from ce_end_strike
+        CE_strikes = list(range(ce_end_strike, ce_end_strike + (50 * 9), 50))
+        CE_strikes.reverse()
+
+        expiries = get_all_expiries(kite)
+        if not expiries:
+            return
+
+        eligible_ce_ts = None
+        eligible_ce_token = None
+
+        for expiry_index in range(min(3, len(expiries))):
+            expiry = expiries[expiry_index]
+            print(f"🔍 Checking expiry {expiry} for recalculated CE strike")
+            symbol_map = find_strikes_for_expiry(kite, expiry)
+
+            for strike in CE_strikes:
+                key = f"{strike}CE"
+                if key in symbol_map:
+                    ts = symbol_map[key]["tradingsymbol"]
+                    token = symbol_map[key]["token"]
+                    result = check_strike_eligibility(kite, ts, token, strike)
+                    if result and "✅ Eligible" in result:
+                        eligible_ce_ts = ts
+                        eligible_ce_token = token
+                        break
+
+            if eligible_ce_ts and eligible_ce_token:
+                break
+
+        if eligible_ce_ts and eligible_ce_token:
+            ce_levels = calculate_entry_levels(kite, eligible_ce_ts, eligible_ce_token, option_type="CE")
+            if ce_levels:
+                send_telegram_message(
+                    f"🔄 Recalculated CE Levels for {eligible_ce_ts}\n"
+                    f"2D High: {ce_levels['2D_HIGH']}\n"
+                    f"2D Low: {ce_levels['2D_LOW']}\n"
+                    f"Entry: {ce_levels['ENTRY']}\n"
+                    f"Target: {ce_levels['TARGET']}\n"
+                    f"Stoploss: {ce_levels['STOPLOSS']}"
+                )
+                save_nifty_strategy({
+                    "strategy_date": datetime.today().date(),
+                    "tradingsymbol": eligible_ce_ts,
+                    "token": eligible_ce_token,
+                    "option_type": "CE",
+                    **ce_levels
+                })
+    except Exception as e:
+        print(f"❌ Error in CE recalculation: {e}")
+
 # ---------- Tick Stream ----------
 def start_tick_stream():
     access_token = load_token()
@@ -159,7 +228,6 @@ def start_tick_stream():
 
             print(f"📊 Tick: {ts} (Token={tick['instrument_token']}) LTP={ltp} OI={oi}")
 
-            # Only check between 9:15 and 9:30
             if now.hour == 9 and 15 <= now.minute <= 30:
                 breached = False
                 if opt_type == "PE" and ltp < entry:
@@ -176,9 +244,11 @@ def start_tick_stream():
                         )
                         last_alert_time[ts] = now
 
-                        # If PE breached, trigger recalculation
+                        # Trigger recalculation
                         if opt_type == "PE":
                             recalc_pe_levels(kite)
+                        elif opt_type == "CE":
+                            recalc_ce_levels(kite)
 
     def on_connect(ws, _response):
         print("✅ Tick WebSocket connected")
