@@ -1,72 +1,35 @@
-import time
-from datetime import datetime, time as dtime
-import psycopg2
-import os
-from dotenv import load_dotenv
-from flask import Flask, request, jsonify
-from tele.telegram_alert import send_telegram_message
+from kiteconnect import KiteTicker
+from brokers.kite_connect import get_kite_instance
 
-load_dotenv()
-SUPABASE_DSN = os.getenv("SUPABASE_DSN")
-
-app = Flask(__name__)
-
-# Cache entry levels from DB
-def fetch_nifty_levels():
-    conn = psycopg2.connect(dsn=SUPABASE_DSN, sslmode="require")
-    cur = conn.cursor()
-    today = datetime.today().date()
-    cur.execute("""
-        SELECT tradingsymbol, option_type, entry
-        FROM nifty_strategy
-        WHERE strategy_date = %s
-    """, (today,))
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
-    return {row[0]: {"option_type": row[1], "entry": row[2]} for row in rows}
-
-levels = fetch_nifty_levels()
-
-# Track last alert time per symbol
-last_alert_time = {}
-
-@app.route("/tick", methods=["POST"])
-def tick_handler():
+def start_tick_stream(instrument_tokens=None):
     """
-    Webhook endpoint to receive tick data.
-    Expected JSON: { "tradingsymbol": "NIFTY2660224150PE", "ltp": 199.0 }
+    Start KiteTicker stream and print ticks to console.
+    instrument_tokens: list of instrument tokens to subscribe (default Nifty index)
     """
-    data = request.json
-    ts = data.get("tradingsymbol")
-    ltp = data.get("ltp")
+    kite = get_kite_instance()
+    if not kite:
+        print("❌ Kite session invalid, cannot start tick stream")
+        return
 
-    if not ts or ts not in levels:
-        return jsonify({"status": "ignored"}), 200
+    if instrument_tokens is None:
+        instrument_tokens = [256265]  # Default: Nifty index token
 
-    entry = levels[ts]["entry"]
-    option_type = levels[ts]["option_type"]
+    kws = KiteTicker(kite._api_key, kite._access_token)
 
-    now = datetime.now()
-    current_time = now.time()
+    def on_ticks(ws, ticks):
+        for tick in ticks:
+            print(f"📊 Tick: Token={tick['instrument_token']} LTP={tick['last_price']} OI={tick.get('oi')}")
 
-    # Only monitor between 9:15 and 9:30
-    if current_time < dtime(9, 15) or current_time > dtime(9, 30):
-        return jsonify({"status": "outside window"}), 200
+    def on_connect(ws, response):
+        print("✅ Tick WebSocket connected")
+        ws.subscribe(instrument_tokens)
+        ws.set_mode(ws.MODE_FULL, instrument_tokens)
 
-    breached = False
-    # ✅ Breach condition: price crosses below entry
-    if ltp < entry:
-        breached = True
+    def on_close(ws, code, reason):
+        print(f"❌ Tick WebSocket closed: {code} {reason}")
 
-    if breached:
-        # Throttle alerts to once every 3 minutes per symbol
-        last_sent = last_alert_time.get(ts)
-        if not last_sent or (now - last_sent).seconds >= 180:
-            send_telegram_message(
-                f"⚠️ {option_type} Entry Breach!\n"
-                f"{ts} crossed below entry {entry} → LTP {ltp}"
-            )
-            last_alert_time[ts] = now
+    kws.on_ticks = on_ticks
+    kws.on_connect = on_connect
+    kws.on_close = on_close
 
-    return jsonify({"status": "processed"}), 200
+    kws.connect(threaded=True)

@@ -12,7 +12,7 @@ from strategies.gold_gapupdown import start_gold_gapupdown
 from strategies.silver_gapupdown import start_silver_gapupdown
 from strategies.nifty_options import start_nifty_options
 from database.db_connect import save_token
-from strategies.nifty_entry_webhook import fetch_nifty_levels, levels, last_alert_time
+from strategies.nifty_entry_webhook import start_tick_stream
 
 
 app = Flask(__name__)
@@ -67,45 +67,25 @@ def callback():
     except Exception as e:
         return f"❌ Error: {str(e)}"
 
-@app.route("/tick", methods=["POST"])
-def tick_handler():
-    """
-    Webhook endpoint to receive tick data.
-    Expected JSON: { "tradingsymbol": "NIFTY2660224150PE", "ltp": 199.0 }
-    """
-    data = request.json
-    ts = data.get("tradingsymbol")
-    ltp = data.get("ltp")
 
-    if not ts or ts not in levels:
-        return {"status": "ignored"}, 200
+# In your main.py startup section:
+if __name__ == "__main__":
+    print("🚀 Starting Stock Alert App")
 
-    entry = levels[ts]["entry"]
-    option_type = levels[ts]["option_type"]
+    # Start Telegram bot
+    Thread(target=lambda: start_bot(use_signals=False), daemon=True).start()
 
-    now = datetime.now()
-    current_time = now.time()
+    kite = get_kite_instance()
+    if kite:
+        Thread(target=run_strategy).start()
+        Thread(target=start_gold_gapupdown, daemon=True).start()
+        Thread(target=start_silver_gapupdown, daemon=True).start()
+        Thread(target=start_nifty_options, daemon=True).start()
+        Thread(target=start_tick_stream, daemon=True).start()   # ✅ Start tick logger
+    else:
+        send_login_link()
 
-    # Only monitor between 9:15 and 9:30
-    if current_time < dtime(9, 15) or current_time > dtime(9, 30):
-        return {"status": "outside window"}, 200
-
-    breached = False
-    # ✅ Breach condition: price crosses below entry
-    if ltp < entry:
-        breached = True
-
-    if breached:
-        # Throttle alerts to once every 3 minutes per symbol
-        last_sent = last_alert_time.get(ts)
-        if not last_sent or (now - last_sent).seconds >= 180:
-            send_telegram_message(
-                f"⚠️ {option_type} Entry Breach!\n"
-                f"{ts} crossed below entry {entry} → LTP {ltp}"
-            )
-            last_alert_time[ts] = now
-
-    return {"status": "processed"}, 200
+    app.run(host="0.0.0.0", port=10000, use_reloader=False)
 
 
 # =========================================
@@ -114,18 +94,16 @@ def tick_handler():
 if __name__ == "__main__":
     print("🚀 Starting Stock Alert App")
 
-    # ✅ Start Telegram bot in background thread with signals disabled
     Thread(target=lambda: start_bot(use_signals=False), daemon=True).start()
 
-    # Check token immediately
     kite = get_kite_instance()
     if kite:
         Thread(target=run_strategy).start()
         Thread(target=start_gold_gapupdown, daemon=True).start()
         Thread(target=start_silver_gapupdown, daemon=True).start()
         Thread(target=start_nifty_options, daemon=True).start()
+        Thread(target=start_tick_stream, daemon=True).start()   # ✅ Start tick stream
     else:
         send_login_link()
 
-    # Start Flask
     app.run(host="0.0.0.0", port=10000, use_reloader=False)
