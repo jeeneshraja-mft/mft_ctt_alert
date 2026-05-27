@@ -2,6 +2,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 import math
 import time
+import calendar
 from kiteconnect import KiteConnect
 from config.config import API_KEY
 from tele.telegram_alert import send_telegram_message
@@ -54,7 +55,8 @@ def find_strikes_for_expiry(kite, expiry):
         key = f"{int(inst['strike'])}{inst['instrument_type']}"
         symbol_map[key] = {
             "tradingsymbol": inst["tradingsymbol"],
-            "token": inst["instrument_token"]
+            "token": inst["instrument_token"],
+            "readable_name": build_readable_name(inst)   # ✅ include readable name
         }
     return symbol_map
 
@@ -163,10 +165,12 @@ def calculate_nifty_options(kite, instrument_token):
     eligible_pe = None
     eligible_pe_ts = None
     eligible_pe_token = None
+    eligible_pe_name = None
 
     eligible_ce = None
     eligible_ce_ts = None
     eligible_ce_token = None
+    eligible_ce_name = None
 
     # Loop through PE strikes
     for strike in PE_strikes:
@@ -174,6 +178,7 @@ def calculate_nifty_options(kite, instrument_token):
         if key in symbol_map:
             ts = symbol_map[key]["tradingsymbol"]
             token = symbol_map[key]["token"]
+            readable_name = symbol_map[key]["readable_name"]
             result = check_strike_eligibility(kite, ts, token, strike)
             if result:
                 print(result)
@@ -181,6 +186,7 @@ def calculate_nifty_options(kite, instrument_token):
                     eligible_pe = f"{result} (Expiry {current_expiry})"
                     eligible_pe_ts = ts
                     eligible_pe_token = token
+                    eligible_pe_name = readable_name
                     break
 
     # Loop through CE strikes
@@ -189,6 +195,7 @@ def calculate_nifty_options(kite, instrument_token):
         if key in symbol_map:
             ts = symbol_map[key]["tradingsymbol"]
             token = symbol_map[key]["token"]
+            readable_name = symbol_map[key]["readable_name"]
             result = check_strike_eligibility(kite, ts, token, strike)
             if result:
                 print(result)
@@ -208,6 +215,7 @@ def calculate_nifty_options(kite, instrument_token):
             if key in symbol_map:
                 ts = symbol_map[key]["tradingsymbol"]
                 token = symbol_map[key]["token"]
+                readable_name = symbol_map[key]["readable_name"]
                 result = check_strike_eligibility(kite, ts, token, strike)
                 if result:
                     print(result)
@@ -227,6 +235,7 @@ def calculate_nifty_options(kite, instrument_token):
             if key in symbol_map:
                 ts = symbol_map[key]["tradingsymbol"]
                 token = symbol_map[key]["token"]
+                readable_name = symbol_map[key]["readable_name"]
                 result = check_strike_eligibility(kite, ts, token, strike)
                 if result:
                     print(result)
@@ -246,6 +255,7 @@ def calculate_nifty_options(kite, instrument_token):
             if key in symbol_map:
                 ts = symbol_map[key]["tradingsymbol"]
                 token = symbol_map[key]["token"]
+                readable_name = symbol_map[key]["readable_name"]
                 result = check_strike_eligibility(kite, ts, token, strike)
                 if result:
                     print(result)
@@ -253,6 +263,7 @@ def calculate_nifty_options(kite, instrument_token):
                         eligible_pe = f"{result} (Expiry {next_to_next_expiry})"
                         eligible_pe_ts = ts
                         eligible_pe_token = token
+                        eligible_pe_name = readable_name
                         break
 
     # If CE still not found, check next-to-next expiry
@@ -265,6 +276,7 @@ def calculate_nifty_options(kite, instrument_token):
             if key in symbol_map:
                 ts = symbol_map[key]["tradingsymbol"]
                 token = symbol_map[key]["token"]
+                readable_name = symbol_map[key]["readable_name"]
                 result = check_strike_eligibility(kite, ts, token, strike)
                 if result:
                     print(result)
@@ -272,50 +284,49 @@ def calculate_nifty_options(kite, instrument_token):
                         eligible_ce = f"{result} (Expiry {next_to_next_expiry})"
                         eligible_ce_ts = ts
                         eligible_ce_token = token
+                        eligible_ce_name = readable_name
                         break
 
     # Final Telegram message
     if eligible_pe or eligible_ce:
 
-        # After confirming an eligible PE strike
-        if eligible_pe and eligible_pe_ts and eligible_pe_token:
+        # Final Telegram + DB save
+        if eligible_pe_ts and eligible_pe_token and eligible_pe_name:
             pe_levels = calculate_entry_levels(kite, eligible_pe_ts, eligible_pe_token, option_type="PE")
             if pe_levels:
                 send_telegram_message(
-                    f"📉 Entry Levels for {eligible_pe_ts}\n"
+                    f"📉 Entry Levels for {eligible_pe_name}\n"
                     f"2D High: {pe_levels['2D_HIGH']}\n"
                     f"2D Low: {pe_levels['2D_LOW']}\n"
                     f"Entry: {pe_levels['ENTRY']}\n"
                     f"Target: {pe_levels['TARGET']}\n"
                     f"Stoploss: {pe_levels['STOPLOSS']}"
                 )
-                # ✅ Save to DB
                 save_nifty_strategy({
                     "strategy_date": datetime.today().date(),
                     "tradingsymbol": eligible_pe_ts,
-                    "token": eligible_pe_token,   # ✅ include token
+                    "readable_name": eligible_pe_name,   # ✅ new column
+                    "token": eligible_pe_token,
                     "option_type": "PE",
                     **pe_levels
                 })
 
-
-        # After confirming an eligible CE strike
-        if eligible_ce and eligible_ce_ts and eligible_ce_token:
+        if eligible_ce_ts and eligible_ce_token and eligible_ce_name:
             ce_levels = calculate_entry_levels(kite, eligible_ce_ts, eligible_ce_token, option_type="CE")
             if ce_levels:
                 send_telegram_message(
-                    f"📈 Entry Levels for {eligible_ce_ts}\n"
+                    f"📈 Entry Levels for {eligible_ce_name}\n"
                     f"2D High: {ce_levels['2D_HIGH']}\n"
                     f"2D Low: {ce_levels['2D_LOW']}\n"
                     f"Entry: {ce_levels['ENTRY']}\n"
                     f"Target: {ce_levels['TARGET']}\n"
                     f"Stoploss: {ce_levels['STOPLOSS']}"
                 )
-                # ✅ Save to DB
                 save_nifty_strategy({
                     "strategy_date": datetime.today().date(),
                     "tradingsymbol": eligible_ce_ts,
-                    "token": eligible_ce_token,   # ✅ include token
+                    "readable_name": eligible_ce_name,   # ✅ new column
+                    "token": eligible_ce_token,
                     "option_type": "CE",
                     **ce_levels
                 })
@@ -324,6 +335,24 @@ def calculate_nifty_options(kite, instrument_token):
 
     else:
         send_telegram_message("❌ No eligible strikes found in current or next expiry")
+
+def build_readable_name(inst):
+    # inst is the instrument dict from kite.instruments
+    expiry = inst["expiry"]
+    strike = int(inst["strike"])
+    opt_type = inst["instrument_type"]
+
+    # Format expiry like "2nd JUN"
+    day = expiry.day
+    suffix = "th"
+    if day % 10 == 1 and day != 11: suffix = "st"
+    elif day % 10 == 2 and day != 12: suffix = "nd"
+    elif day % 10 == 3 and day != 13: suffix = "rd"
+    month_abbr = expiry.strftime("%b").upper()
+
+    expiry_str = f"{day}{suffix} {month_abbr}"
+
+    return f"Nifty {expiry_str} {strike} {opt_type}"
 
 
 # ---------- New Implementation: Entry, Target, Stoploss ----------
