@@ -106,8 +106,9 @@ def recalc_pe_levels(kite):
         if eligible_pe_ts and eligible_pe_token:
             pe_levels = calculate_entry_levels(kite, eligible_pe_ts, eligible_pe_token, option_type="PE")
             if pe_levels:
+                readable_name = get_readable_name(symbol_map[f"{strike}PE"], strike, "PE")
                 send_telegram_message(
-                    f"🔄 Recalculated PE Levels for {eligible_pe_ts}\n"
+                    f"🔄 Recalculated PE Levels for {readable_name}\n"
                     f"2D High: {pe_levels['2D_HIGH']}\n"
                     f"2D Low: {pe_levels['2D_LOW']}\n"
                     f"Entry: {pe_levels['ENTRY']}\n"
@@ -119,8 +120,10 @@ def recalc_pe_levels(kite):
                     "tradingsymbol": eligible_pe_ts,
                     "token": eligible_pe_token,
                     "option_type": "PE",
+                    "readable_name": readable_name,
                     **pe_levels
                 })
+
     except Exception as e:
         print(f"❌ Error in PE recalculation: {e}")
 
@@ -190,8 +193,36 @@ def recalc_ce_levels(kite):
                     "option_type": "CE",
                     **ce_levels
                 })
+        if eligible_ce_ts and eligible_ce_token:
+            ce_levels = calculate_entry_levels(kite, eligible_ce_ts, eligible_ce_token, option_type="CE")
+            if ce_levels:
+                readable_name = get_readable_name(symbol_map[f"{strike}CE"], strike, "CE")
+                send_telegram_message(
+                    f"🔄 Recalculated CE Levels for {readable_name}\n"
+                    f"2D High: {ce_levels['2D_HIGH']}\n"
+                    f"2D Low: {ce_levels['2D_LOW']}\n"
+                    f"Entry: {ce_levels['ENTRY']}\n"
+                    f"Target: {ce_levels['TARGET']}\n"
+                    f"Stoploss: {ce_levels['STOPLOSS']}"
+                )
+                save_nifty_strategy({
+                    "strategy_date": datetime.today().date(),
+                    "tradingsymbol": eligible_ce_ts,
+                    "token": eligible_ce_token,
+                    "option_type": "CE",
+                    "readable_name": readable_name,
+                    **ce_levels
+                })
+
     except Exception as e:
         print(f"❌ Error in CE recalculation: {e}")
+
+# ---------- Utility to build readable instrument name ----------
+def get_readable_name(symbol_map_entry, strike, option_type):
+    # Example: "Nifty 2nd JUN 24150 PE"
+    expiry_str = symbol_map_entry.get("expiry")
+    return f"Nifty {expiry_str} {strike} {option_type}"
+
 
 # ---------- Tick Stream ----------
 def start_tick_stream():
@@ -239,9 +270,10 @@ def start_tick_stream():
                 if breached:
                     last_sent = last_alert_time.get(ts)
                     if not last_sent or (now - last_sent).seconds >= 180:
+                        readable_name = symbol_info.get("readable_name", ts)
                         send_telegram_message(
                             f"⚠️ {opt_type} Entry Breach!\n"
-                            f"{ts} crossed entry {entry} → LTP {ltp}"
+                            f"{readable_name} crossed entry {entry} → LTP {ltp}"
                         )
                         last_alert_time[ts] = now
 
