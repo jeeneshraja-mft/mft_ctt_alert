@@ -289,13 +289,13 @@ def calculate_entry_levels(kite, tradingsymbol, instrument_token, option_type="C
     stoploss = min(slc1, slc2)
 
     result = {
-        "Strike": tradingsymbol,
-        "OptionType": option_type,
-        "2D_HIGH": two_day_high,
-        "2D_LOW": two_day_low,
-        "ENTRY": entry,
-        "TARGET": target,
-        "STOPLOSS": stoploss
+    "Strike": tradingsymbol,
+    "OptionType": option_type,
+    "2D_HIGH": round(two_day_high),
+    "2D_LOW": round(two_day_low),
+    "ENTRY": round(entry),
+    "TARGET": round(target),
+    "STOPLOSS": round(stoploss)
     }
 
     return result
