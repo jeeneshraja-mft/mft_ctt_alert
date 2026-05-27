@@ -147,6 +147,7 @@ def save_nifty_strategy(data):
     conn = psycopg2.connect(dsn=SUPABASE_DSN, sslmode="require")
     cur = conn.cursor()
 
+    # Ensure table exists
     cur.execute("""
         CREATE TABLE IF NOT EXISTS nifty_strategy (
             id SERIAL PRIMARY KEY,
@@ -162,7 +163,34 @@ def save_nifty_strategy(data):
         )
     """)
 
-    # 🔑 Cast numpy types to native Python float
+    # 🔍 Check if record already exists for same date + symbol + option_type
+    cur.execute("""
+        SELECT two_day_high, two_day_low, entry, target, stoploss
+        FROM nifty_strategy
+        WHERE strategy_date = %s
+          AND tradingsymbol = %s
+          AND option_type = %s
+        ORDER BY created_at DESC
+        LIMIT 1
+    """, (data["strategy_date"], data["tradingsymbol"], data["option_type"]))
+
+    row = cur.fetchone()
+    if row:
+        existing = {
+            "2D_HIGH": float(row[0]),
+            "2D_LOW": float(row[1]),
+            "ENTRY": float(row[2]),
+            "TARGET": float(row[3]),
+            "STOPLOSS": float(row[4]),
+        }
+        # If identical, skip insert
+        if all(round(data[k]) == round(existing[k]) for k in existing):
+            print(f"⚪ Nifty strategy unchanged for {data['tradingsymbol']} — not saving duplicate")
+            cur.close()
+            conn.close()
+            return False
+
+    # ✅ Insert new record
     cur.execute("""
         INSERT INTO nifty_strategy (
             strategy_date, tradingsymbol, option_type,
@@ -185,4 +213,3 @@ def save_nifty_strategy(data):
     conn.close()
     print(f"✅ Nifty strategy saved for {data['tradingsymbol']}")
     return True
-
