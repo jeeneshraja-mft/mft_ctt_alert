@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from kiteconnect import KiteTicker
 from config.config import API_KEY
 from database.db_connect import load_token
+from datetime import datetime
 
 load_dotenv()
 SUPABASE_DSN = os.getenv("SUPABASE_DSN")
