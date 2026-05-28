@@ -1,5 +1,6 @@
 from kiteconnect import KiteConnect
-from datetime import date, timedelta
+from datetime import datetime,date, timedelta
+import pytz
 import pandas as pd
 from database.db_connect import save_silver_strategy
 
@@ -7,12 +8,13 @@ from database.db_connect import save_silver_strategy
 def mround(value, base=1):
     return round(value / base) * base
 
+IST = pytz.timezone("Asia/Kolkata")
 
 # ---------- Get Latest Contract ----------
 def get_latest_silver_token(kite: KiteConnect):
     mcx_instruments = kite.instruments("MCX")
 
-    today = date.today()
+    today = datetime.now(IST).date()
     valid_contracts = []
 
     for inst in mcx_instruments:
@@ -43,7 +45,7 @@ def get_latest_silver_token(kite: KiteConnect):
 def fetch_silver_strategy_levels(kite: KiteConnect):
     instrument_token, tradingsymbol = get_latest_silver_token(kite)
 
-    to_date = date.today()
+    to_date = datetime.now(IST).date()
     from_date = to_date - timedelta(days=10)
 
     data = kite.historical_data(
@@ -59,7 +61,7 @@ def fetch_silver_strategy_levels(kite: KiteConnect):
         raise Exception("❌ No historical data found")
 
     df["date"] = pd.to_datetime(df["date"]).dt.date
-    today = date.today()
+    today = datetime.now(IST).date()
     df = df[df["date"] < today]
 
     if len(df) < 4:
@@ -99,7 +101,7 @@ def fetch_silver_strategy_levels(kite: KiteConnect):
 
     return {
         "tradingsymbol": tradingsymbol,
-        "strategy_date": date.today(),
+        "strategy_date": datetime.now(IST).date(),
 
         "a_last4_high": a,
         "b_last4_low": b,

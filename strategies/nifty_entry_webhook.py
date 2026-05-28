@@ -4,6 +4,7 @@ import time
 import math
 import pandas as pd
 from datetime import datetime
+import pytz
 from dotenv import load_dotenv
 from kiteconnect import KiteTicker, KiteConnect
 from config.config import API_KEY
@@ -17,6 +18,7 @@ from strategies.nifty_options import (
     floor,
 )
 
+IST = pytz.timezone("Asia/Kolkata")
 load_dotenv()
 SUPABASE_DSN = os.getenv("SUPABASE_DSN")
 
@@ -244,7 +246,7 @@ def start_tick_stream():
     kite.set_access_token(access_token)
 
     def on_ticks(ws, ticks):
-        now = datetime.now()
+        now = datetime.now(IST)
         for tick in ticks:
             symbol_info = next((row for row in instrument_data
                                 if row["token"] == tick["instrument_token"]), None)

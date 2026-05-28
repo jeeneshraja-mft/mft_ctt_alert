@@ -1,5 +1,6 @@
 from kiteconnect import KiteConnect
-from datetime import date, timedelta
+from datetime import datetime,date, timedelta
+import pytz
 import pandas as pd
 from database.db_connect import save_gold_strategy
 
@@ -7,11 +8,13 @@ from database.db_connect import save_gold_strategy
 def mround(value, base=1):
     return round(value / base) * base
 
+IST = pytz.timezone("Asia/Kolkata")
 
 # ---------- Get Latest GOLD Contract (ROBUST) ----------
 def get_latest_goldten_token(kite: KiteConnect):
     mcx_instruments = kite.instruments("MCX")
-    today = date.today()
+    today = datetime.now(IST).date()
+
 
     valid_contracts = []
 
@@ -53,7 +56,7 @@ def get_latest_goldten_token(kite: KiteConnect):
 def fetch_strategy_levels(kite: KiteConnect):
     instrument_token, tradingsymbol = get_latest_goldten_token(kite)
 
-    to_date = date.today()
+    to_date = datetime.now(IST).date()
     from_date = to_date - timedelta(days=10)
 
     data = kite.historical_data(
@@ -70,7 +73,7 @@ def fetch_strategy_levels(kite: KiteConnect):
 
     # Exclude today's candle
     df["date"] = pd.to_datetime(df["date"]).dt.date
-    today = date.today()
+    today = datetime.now(IST).date()
     df = df[df["date"] < today]
 
     if len(df) < 4:
@@ -142,7 +145,7 @@ def fetch_strategy_levels(kite: KiteConnect):
     # ---------- Return ----------
     return {
         "tradingsymbol": tradingsymbol,
-        "strategy_date": date.today(),
+        "strategy_date": datetime.now(IST).date(),
 
         "a_last4_high": a,
         "b_last4_low": b,

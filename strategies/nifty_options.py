@@ -4,6 +4,7 @@ import math
 import time
 import calendar
 from kiteconnect import KiteConnect
+import pytz
 from config.config import API_KEY
 from tele.telegram_alert import send_telegram_message
 from database.db_connect import load_token, save_nifty_strategy
@@ -28,9 +29,11 @@ def ceiling(value, base=50):
 def floor(value, base=50):
     return int(math.floor(value / base) * base)
 
+IST = pytz.timezone("Asia/Kolkata")
+
 # ---------- Load Nifty historical data ----------
 def load_nifty_data(kite, instrument_token):
-    today = datetime.today().date()
+    today = datetime.now(IST).date()
     from_date = today - timedelta(days=10)
     data = kite.historical_data(instrument_token, from_date, today, "day")
     df = pd.DataFrame(data)
@@ -63,7 +66,7 @@ def find_strikes_for_expiry(kite, expiry):
 # ---------- Strike Eligibility ----------
 
 def check_strike_eligibility(kite, tradingsymbol, instrument_token, strike, threshold_oi=35000):
-    today = datetime.today().date()
+    today = datetime.now(IST).date()
     from_date = today - timedelta(days=5)
 
     try:
@@ -306,7 +309,7 @@ def calculate_nifty_options(kite, instrument_token):
                     f"Stoploss: {pe_levels['STOPLOSS']}"
                 )
                 save_nifty_strategy({
-                    "strategy_date": datetime.today().date(),
+                    "strategy_date": datetime.now(IST).date(),
                     "tradingsymbol": eligible_pe_ts,
                     "readable_name": eligible_pe_name,   # ✅ new column
                     "token": eligible_pe_token,
@@ -326,7 +329,7 @@ def calculate_nifty_options(kite, instrument_token):
                     f"Stoploss: {ce_levels['STOPLOSS']}"
                 )
                 save_nifty_strategy({
-                    "strategy_date": datetime.today().date(),
+                    "strategy_date": datetime.now(IST).date(),
                     "tradingsymbol": eligible_ce_ts,
                     "readable_name": eligible_ce_name,   # ✅ new column
                     "token": eligible_ce_token,
@@ -364,7 +367,7 @@ def calculate_entry_levels(kite, tradingsymbol, instrument_token, option_type="C
     Calculate entry, target, and stoploss for CE/PE strikes
     """
 
-    today = datetime.today().date()
+    today = datetime.now(IST).date()
     from_date = today - timedelta(days=5)
 
     # Historical data (daily candles)
