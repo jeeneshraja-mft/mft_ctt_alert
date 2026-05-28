@@ -19,7 +19,7 @@ def send_telegram_message(message: str) -> bool:
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
         "text": message,
-        "parse_mode": "MarkdownV2"
+        "parse_mode": "Markdown"
     }
 
     for attempt in range(3):  # retry up to 3 times
@@ -40,11 +40,11 @@ def notify_trading_holiday(holiday):
     holiday_name = holiday['holiday_name'].replace("(", "\\(").replace(")", "\\)").replace("-", "\\-")
 
     # NSE
-    nse_status = "*Holiday*" if holiday['nse_holiday'] == 'Y' else "__Open__"
+    nse_status = "*Holiday*" if holiday['nse_holiday'] == 'Y' else "*Open*"
     # MCX Morning
-    mcx_morning_status = "*Holiday*" if holiday['mcx_morning'] == 'Y' else "__Open__"
+    mcx_morning_status = "*Holiday*" if holiday['mcx_morning'] == 'Y' else "*Open*"
     # MCX Evening
-    mcx_evening_status = "*Holiday*" if holiday['mcx_evening'] == 'Y' else "__Open__"
+    mcx_evening_status = "*Holiday*" if holiday['mcx_evening'] == 'Y' else "*Open*"
 
     msg = (
         "━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -58,5 +58,5 @@ def notify_trading_holiday(holiday):
     )
 
     # IMPORTANT: set parse_mode to MarkdownV2
-    send_telegram_message(msg, parse_mode="MarkdownV2")
+    send_telegram_message(msg)
     print("📨 Trading holiday notification sent to Telegram")
