@@ -36,12 +36,24 @@ def send_telegram_message(message: str) -> bool:
     return False
 
 def notify_trading_holiday(holiday):
+    # NSE
+    nse_status = "*Holiday*" if holiday['nse_holiday'] == 'Y' else "*Open*"
+    # MCX Morning
+    mcx_morning_status = "*Holiday*" if holiday['mcx_morning'] == 'Y' else "*Open*"
+    # MCX Evening (italic + bold if open)
+    if holiday['mcx_evening'] == 'Y':
+        mcx_evening_status = "*Holiday*"
+    else:
+        mcx_evening_status = "_*Open*_"
+
     msg = (
         f"🚨 *URGENT TRADING HOLIDAY ALERT* 🚨\n\n"
-        f"📅 *Today ({holiday['date']}) is {holiday['holiday_name']}*\n\n"
-        f"🛑 NSE: *{'Holiday' if holiday['nse_holiday']=='Y' else 'Open'}*\n"
-        f"⚠️ MCX Morning: *{'Holiday' if holiday['mcx_morning']=='Y' else 'Open'}*\n"
-        f"⚠️ MCX Evening: *{'Holiday' if holiday['mcx_evening']=='Y' else 'Open'}*"
+        f"📅 _Today ({holiday['date']}) is {holiday['holiday_name']}_\n\n"
+        f"🛑 NSE: {nse_status}\n"
+        f"⚠️ MCX Morning: {mcx_morning_status}\n"
+        f"⚠️ MCX Evening: {mcx_evening_status}"
     )
-    send_telegram_message(msg)  # Ensure your bot sends with parse_mode="Markdown"
+
+    # Ensure your send_telegram_message sets parse_mode="Markdown"
+    send_telegram_message(msg)
     print("📨 Trading holiday notification sent to Telegram")
