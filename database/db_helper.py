@@ -1,6 +1,11 @@
 import psycopg2
 from datetime import datetime
 import pytz
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+SUPABASE_DSN = os.getenv("SUPABASE_DSN")
 
 IST = pytz.timezone("Asia/Kolkata")
 
@@ -19,13 +24,7 @@ def get_today_holiday():
         }
 
     try:
-        conn = psycopg2.connect(
-            host="YOUR_SUPABASE_HOST",
-            database="postgres",
-            user="YOUR_SUPABASE_USER",
-            password="YOUR_SUPABASE_PASSWORD",
-            port=5432
-        )
+        conn = psycopg2.connect(dsn=SUPABASE_DSN, sslmode="require")
         cur = conn.cursor()
         cur.execute("""
             SELECT holiday_name, nse_holiday, mcx_morning, mcx_evening
