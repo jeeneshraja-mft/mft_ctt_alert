@@ -37,23 +37,22 @@ def send_telegram_message(message: str) -> bool:
 
 def notify_trading_holiday(holiday):
     # NSE
-    nse_status = "*Holiday*" if holiday['nse_holiday'] == 'Y' else "*Open*"
+    nse_status = "*Holiday*" if holiday['nse_holiday'] == 'Y' else "_*Open*_"
     # MCX Morning
-    mcx_morning_status = "*Holiday*" if holiday['mcx_morning'] == 'Y' else "*Open*"
-    # MCX Evening (italic + bold if open)
-    if holiday['mcx_evening'] == 'Y':
-        mcx_evening_status = "*Holiday*"
-    else:
-        mcx_evening_status = "_*Open*_"
+    mcx_morning_status = "*Holiday*" if holiday['mcx_morning'] == 'Y' else "_*Open*_"
+    # MCX Evening
+    mcx_evening_status = "*Holiday*" if holiday['mcx_evening'] == 'Y' else "_*Open*_"
 
     msg = (
-        f"🚨 *URGENT TRADING HOLIDAY ALERT* 🚨\n\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "🚨 *URGENT TRADING HOLIDAY ALERT* 🚨\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n\n"
         f"📅 _Today ({holiday['date']}) is {holiday['holiday_name']}_\n\n"
         f"🛑 NSE: {nse_status}\n"
         f"⚠️ MCX Morning: {mcx_morning_status}\n"
-        f"⚠️ MCX Evening: {mcx_evening_status}"
+        f"⚠️ MCX Evening: {mcx_evening_status}\n"
+        "━━━━━━━━━━━━━━━━━━━━━━"
     )
 
-    # Ensure your send_telegram_message sets parse_mode="Markdown"
-    send_telegram_message(msg)
+    send_telegram_message(msg)  # ensure parse_mode="Markdown" or "MarkdownV2"
     print("📨 Trading holiday notification sent to Telegram")
