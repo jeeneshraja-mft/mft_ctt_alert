@@ -19,7 +19,7 @@ def send_telegram_message(message: str) -> bool:
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
         "text": message,
-        "parse_mode": "HTML"
+        "parse_mode": "Markdown"
     }
 
     for attempt in range(3):  # retry up to 3 times
