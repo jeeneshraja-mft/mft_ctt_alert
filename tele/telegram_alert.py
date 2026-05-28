@@ -19,7 +19,7 @@ def send_telegram_message(message: str) -> bool:
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
         "text": message,
-        "parse_mode": "Markdown"
+        "parse_mode": "MarkdownV2"
     }
 
     for attempt in range(3):  # retry up to 3 times
@@ -36,23 +36,27 @@ def send_telegram_message(message: str) -> bool:
     return False
 
 def notify_trading_holiday(holiday):
+    # Escape parentheses and hyphens for MarkdownV2
+    holiday_name = holiday['holiday_name'].replace("(", "\\(").replace(")", "\\)").replace("-", "\\-")
+
     # NSE
-    nse_status = "*Holiday*" if holiday['nse_holiday'] == 'Y' else "_*Open*_"
+    nse_status = "*Holiday*" if holiday['nse_holiday'] == 'Y' else "__Open__"
     # MCX Morning
-    mcx_morning_status = "*Holiday*" if holiday['mcx_morning'] == 'Y' else "_*Open*_"
+    mcx_morning_status = "*Holiday*" if holiday['mcx_morning'] == 'Y' else "__Open__"
     # MCX Evening
-    mcx_evening_status = "*Holiday*" if holiday['mcx_evening'] == 'Y' else "_*Open*_"
+    mcx_evening_status = "*Holiday*" if holiday['mcx_evening'] == 'Y' else "__Open__"
 
     msg = (
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         "🚨 *URGENT TRADING HOLIDAY ALERT* 🚨\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"📅 _Today ({holiday['date']}) is {holiday['holiday_name']}_\n\n"
+        f"📅 _Today ({holiday['date']}) is {holiday_name}_\n\n"
         f"🛑 NSE: {nse_status}\n"
         f"⚠️ MCX Morning: {mcx_morning_status}\n"
         f"⚠️ MCX Evening: {mcx_evening_status}\n"
         "━━━━━━━━━━━━━━━━━━━━━━"
     )
 
-    send_telegram_message(msg)  # ensure parse_mode="Markdown" or "MarkdownV2"
+    # IMPORTANT: set parse_mode to MarkdownV2
+    send_telegram_message(msg, parse_mode="MarkdownV2")
     print("📨 Trading holiday notification sent to Telegram")
