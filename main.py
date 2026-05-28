@@ -12,6 +12,7 @@ from strategies.nifty_options import start_nifty_options
 from database.db_connect import save_token
 from strategies.nifty_entry_webhook import start_tick_stream
 from database.db_helper import get_today_holiday
+from strategies.kite_positions import fetch_positions_and_alert
 
 
 app = Flask(__name__)
@@ -79,9 +80,11 @@ if __name__ == "__main__":
     kite = get_kite_instance()
     if kite:
         Thread(target=run_strategy).start()
-        Thread(target=start_gold_gapupdown, daemon=True).start()
-        Thread(target=start_silver_gapupdown, daemon=True).start()
+        # Thread(target=start_gold_gapupdown, daemon=True).start()
+        # Thread(target=start_silver_gapupdown, daemon=True).start()
         Thread(target=start_nifty_options, daemon=True).start()
+        Thread(target=fetch_positions_and_alert, daemon=True).start()
+        
 
         # ✅ Single DB call, reused for both logic and notification
         holiday = get_today_holiday()
