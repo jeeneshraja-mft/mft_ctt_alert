@@ -111,10 +111,37 @@ def recalc_levels(kite, instrument_token, tradingsymbol):
     sl2_down = mround(min(entry_down * (1 + 0.015), C_down * (1 + 0.0012)), 1)
 
     send_telegram_message(
-        f"📊 9:15 GOLD Recalculated\n"
+        f"📊 GOLD Recalculated\n"
         f"--- Gap-Up ---\nEntry: {entry_up}\nTarget: {target_up}\nSL1: {sl1_up}\nSL2: {sl2_up}\n"
         f"--- Gap-Down ---\nEntry: {entry_down}\nTarget: {target_down}\nSL1: {sl1_down}\nSL2: {sl2_down}"
     )
+
+# ---------- Manual Command Handler ----------
+def handle_rc_gold_request(kite, instrument_token, tradingsymbol):
+    now = datetime.now()
+    target_time = now.replace(hour=9, minute=10, second=0, microsecond=0)
+
+    if now < target_time:
+        # Step 1: Acknowledge
+        send_telegram_message("✅ /rc_gold request received, recalculation activated.")
+        time.sleep(5)
+        send_telegram_message("⏳ Process is running…")
+        time.sleep(5)
+        remaining = int((target_time - datetime.now()).total_seconds() / 60)
+        send_telegram_message(f"📢 Alert will be sent in ~{remaining} minutes (at 9:10).")
+
+        # Step 2: Wait until 9:10
+        sleep_seconds = (target_time - datetime.now()).total_seconds()
+        if sleep_seconds > 0:
+            time.sleep(sleep_seconds)
+
+        # Step 3: Recalculate
+        recalc_levels(kite, instrument_token, tradingsymbol)
+
+    else:
+        # After 9:10 → immediate
+        send_telegram_message("⚡ /rc_gold request received, recalculating immediately…")
+        recalc_levels(kite, instrument_token, tradingsymbol)
 
 # ---------- Public entry point ----------
 def start_gold_gapupdown():
@@ -136,3 +163,7 @@ def start_gold_gapupdown():
     kws.on_ticks = on_ticks
     kws.on_connect = lambda ws, _: ws.subscribe([instrument_token])
     kws.connect(threaded=True)
+
+    # Example: hook Telegram bot command here
+    # if command == "/rc_gold":
+    #     handle_rc_gold_request(kite, instrument_token, tradingsymbol)

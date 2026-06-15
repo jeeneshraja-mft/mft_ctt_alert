@@ -8,6 +8,9 @@ from strategies.nifty_options import calculate_nifty_options   # ✅ Import your
 from tele.telegram_alert import send_telegram_message
 from dotenv import load_dotenv
 
+# ✅ Import the new handler from gold_gapupdown
+from strategies.gold_gapupdown import handle_rc_gold_request, get_latest_goldten_token
+
 # Load environment variables from .env
 load_dotenv()
 
@@ -105,12 +108,26 @@ async def nifty_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         send_login_link()
         return
     try:
-        # Call your NIFTY strategy
         instrument_token = 256265  # Nifty index token
         calculate_nifty_options(kite, instrument_token)
         await update.message.reply_text("📊 NIFTY strategy executed. Levels sent to Telegram.")
     except Exception as e:
         await update.message.reply_text(f"❌ Nifty strategy error: {e}")
+
+# ✅ NEW GOLD RECALCULATION COMMAND
+async def rc_gold_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    kite = get_kite_instance()
+    if not kite:
+        await update.message.reply_text("❌ Kite login expired")
+        send_login_link()
+        return
+    try:
+        instrument_token, tradingsymbol = get_latest_goldten_token(kite)
+        # Call the handler from gold_gapupdown
+        handle_rc_gold_request(kite, instrument_token, tradingsymbol)
+        await update.message.reply_text("📊 GOLD recalculation process triggered. Alerts will be sent to Telegram.")
+    except Exception as e:
+        await update.message.reply_text(f"❌ rc_gold error: {e}")
 
 # =========================================
 # ERROR HANDLER
@@ -130,6 +147,7 @@ def start_bot(use_signals=False):
     app.add_handler(CommandHandler("silver", silver_command))
     app.add_handler(CommandHandler("run", run_command))
     app.add_handler(CommandHandler("nifty", nifty_command))   # ✅ Register new command
+    app.add_handler(CommandHandler("rc_gold", rc_gold_command))   # ✅ Register new gold recalculation command
     app.add_error_handler(error_handler)
 
     print("🤖 Telegram bot running...")
