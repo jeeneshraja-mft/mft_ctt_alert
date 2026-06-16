@@ -88,11 +88,11 @@ if __name__ == "__main__":
 
         # ✅ Single DB call, reused for both logic and notification
         holiday = get_today_holiday()
-        if not holiday:
-            Thread(target=start_tick_stream, daemon=True).start()
-        else:
-            print("⏸ Tick stream skipped due to holiday/weekend")
-            notify_trading_holiday(holiday)
+        # if not holiday:
+        #     Thread(target=start_tick_stream, daemon=True).start()
+        # else:
+        #     print("⏸ Tick stream skipped due to holiday/weekend")
+        #     notify_trading_holiday(holiday)
     else:
         send_login_link()
 
