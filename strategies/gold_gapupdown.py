@@ -175,7 +175,7 @@ def handle_rc_gold_request(kite, instrument_token, tradingsymbol):
 
     else:
         # After 9:10 → immediate
-        send_telegram_message("⚡ /rc_gold request received, recalculating immediately…")
+        send_telegram_message("⚡ recalculate gold request received, recalculating immediately…")
         recalc_levels(kite, instrument_token, tradingsymbol)
 
 # ---------- Public entry point ----------
