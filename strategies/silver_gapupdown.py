@@ -146,7 +146,7 @@ def handle_rc_silver_request(kite, instrument_token, tradingsymbol):
     target_time = now_ist.replace(hour=9, minute=10, second=0, microsecond=0)
 
     if now_ist < target_time:
-        send_telegram_message("✅ /rc_silver request received, recalculation activated.")
+        send_telegram_message("✅ silver recalculation request received, recalculation activated.")
         time.sleep(5)
         send_telegram_message("⏳ SILVER process is running…")
         time.sleep(5)
@@ -159,7 +159,7 @@ def handle_rc_silver_request(kite, instrument_token, tradingsymbol):
 
         recalc_levels(kite, instrument_token, tradingsymbol)
     else:
-        send_telegram_message("⚡ /rc_silver request received, recalculating immediately…")
+        send_telegram_message("⚡ silver recalculation request received, recalculating immediately…")
         recalc_levels(kite, instrument_token, tradingsymbol)
 
 # ---------- Public entry point ----------
