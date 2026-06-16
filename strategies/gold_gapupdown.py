@@ -83,38 +83,65 @@ def on_ticks(ws, ticks):
 # ---------- Recalculate levels ----------
 def recalc_levels(kite, instrument_token, tradingsymbol):
     today = datetime.today().date()
-    from_date = today - timedelta(days=10)
-    data = kite.historical_data(instrument_token, from_date, today, "day")
+    start_time = datetime.combine(today, datetime.min.time()).replace(hour=9, minute=0)
+    end_time = start_time.replace(minute=10)
+
+    # Fetch minute-level data for 9:00–9:10
+    data = kite.historical_data(instrument_token, start_time, end_time, "minute")
+
+    if not data:
+        send_telegram_message("❌ No minute data found for 9:00–9:10")
+        return
 
     df = pd.DataFrame(data)
-    df["date"] = pd.to_datetime(df["date"]).dt.date
-    df = df[df["date"] < today].sort_values(by="date", ascending=False)
+    df["date"] = pd.to_datetime(df["date"])
 
-    # Gap-Up Inputs
-    A_up = df.iloc[0]["high"]
-    B_up = df.head(2)["low"].min()
-    C_up = df.head(4)["low"].min()
+    # Calculate high and low for the first 10 minutes
+    session_high = df["high"].max()
+    session_low = df["low"].min()
 
-    entry_up = mround(A_up * (1 + 0.0012), 1)
-    target_up = mround(entry_up * (1 + 0.015), 1)
-    sl1_up = mround(max(entry_up * (1 - 0.015), B_up * (1 - 0.0012)), 1)
-    sl2_up = mround(max(entry_up * (1 - 0.015), C_up * (1 - 0.0012)), 1)
+    # Load today's strategy levels from DB
+    levels = load_gold_strategy_from_db()
+    if not levels:
+        send_telegram_message("❌ No gold strategy levels found in DB")
+        return
 
-    # Gap-Down Inputs
-    A_down = df.iloc[0]["low"]
-    B_down = df.head(2)["high"].max()
-    C_down = df.head(4)["high"].max()
+    buy_entry = levels["buy_entry"]
+    sell_entry = levels["sell_entry"]
 
-    entry_down = mround(A_down * (1 - 0.0012), 1)
-    target_down = mround(entry_down * (1 - 0.015), 1)
-    sl1_down = mround(min(entry_down * (1 + 0.015), B_down * (1 + 0.0012)), 1)
-    sl2_down = mround(min(entry_down * (1 + 0.015), C_down * (1 + 0.0012)), 1)
+    # Validation: check if buy_entry or sell_entry was crossed
+    crossed_buy = session_high >= buy_entry
+    crossed_sell = session_low <= sell_entry
 
-    send_telegram_message(
-        f"📊 GOLD Recalculated\n"
-        f"--- Gap-Up ---\nEntry: {entry_up}\nTarget: {target_up}\nSL1: {sl1_up}\nSL2: {sl2_up}\n"
-        f"--- Gap-Down ---\nEntry: {entry_down}\nTarget: {target_down}\nSL1: {sl1_down}\nSL2: {sl2_down}"
-    )
+    if not crossed_buy and not crossed_sell:
+        send_telegram_message(
+            f"ℹ️ Between 9:00–9:10, price stayed within range.\n"
+            f"High: {session_high}, Low: {session_low}\n"
+            f"Buy Entry: {buy_entry}, Sell Entry: {sell_entry}"
+        )
+        return
+
+    # If Buy Entry crossed → calculate Gap-Up levels
+    if crossed_buy:
+        entry_up = mround(session_high * (1 + 0.0012), 1)
+        target_up = mround(entry_up * (1 + 0.015), 1)
+        sl_up = mround(session_low, 1)   # SL based on session low
+
+        send_telegram_message(
+            f"📊 GOLD Gap-Up Recalculated (9:00–9:10)\n"
+            f"Entry: {entry_up}\nTarget: {target_up}\nSL: {sl_up}"
+        )
+
+    # If Sell Entry crossed → calculate Gap-Down levels
+    if crossed_sell:
+        entry_down = mround(session_low * (1 - 0.0012), 1)
+        target_down = mround(entry_down * (1 - 0.015), 1)
+        sl_down = mround(session_high, 1)  # SL based on session high
+
+        send_telegram_message(
+            f"📊 GOLD Gap-Down Recalculated (9:00–9:10)\n"
+            f"Entry: {entry_down}\nTarget: {target_down}\nSL: {sl_down}"
+        )
 
 # ---------- Manual Command Handler ----------
 def handle_rc_gold_request(kite, instrument_token, tradingsymbol):
