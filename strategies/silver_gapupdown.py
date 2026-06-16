@@ -2,6 +2,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 import psycopg2
 import pytz
+import time
 from kiteconnect import KiteConnect, KiteTicker
 from config.config import SUPABASE_DSN, API_KEY
 from database.db_connect import load_token
@@ -81,32 +82,24 @@ def on_ticks(ws, ticks):
         ws.close()
 
 # ---------- Recalculate levels ----------
-
 def recalc_levels(kite, instrument_token, tradingsymbol):
-    # Define IST timezone
     ist = pytz.timezone("Asia/Kolkata")
     now_ist = datetime.now(ist)
     today = now_ist.date()
 
-    # Build 9:00–9:10 window in IST
     start_time = ist.localize(datetime.combine(today, datetime.min.time()).replace(hour=9, minute=0))
     end_time = ist.localize(datetime.combine(today, datetime.min.time()).replace(hour=9, minute=10))
 
-    # Fetch minute-level data for 9:00–9:10 IST
     data = kite.historical_data(instrument_token, start_time, end_time, "minute")
-
     if not data:
         send_telegram_message("❌ No minute data found for 9:00–9:10 IST")
         return
 
     df = pd.DataFrame(data)
     df["date"] = pd.to_datetime(df["date"])
-
-    # Calculate high and low for the first 10 minutes
     session_high = df["high"].max()
     session_low = df["low"].min()
 
-    # Load today's strategy levels from DB
     levels = load_silver_strategy_from_db()
     if not levels:
         send_telegram_message("❌ No silver strategy levels found in DB")
@@ -115,7 +108,6 @@ def recalc_levels(kite, instrument_token, tradingsymbol):
     buy_entry = levels["buy_entry"]
     sell_entry = levels["sell_entry"]
 
-    # Validation: check if buy_entry or sell_entry was crossed
     crossed_buy = session_high >= buy_entry
     crossed_sell = session_low <= sell_entry
 
@@ -127,33 +119,48 @@ def recalc_levels(kite, instrument_token, tradingsymbol):
         )
         return
 
-    # If Buy Entry crossed → calculate Gap-Up levels (Silver formula)
     if crossed_buy:
-        A_up = session_high
-        B_up = session_low  # using session low for SL reference
-        entry_up = mround(A_up * (1 + 0.0012), 1)
+        entry_up = mround(session_high * (1 + 0.0012), 1)
         target_up = mround(entry_up * (1 + 0.02), 1)
-        sl1_up = mround(max(entry_up * (1 - 0.02), B_up * (1 - 0.0012)), 1)
-        sl2_up = mround(max(entry_up * (1 - 0.02), B_up * (1 - 0.0012)), 1)
-
+        sl1_up = mround(max(entry_up * (1 - 0.02), session_low * (1 - 0.0012)), 1)
+        sl2_up = mround(max(entry_up * (1 - 0.02), session_low * (1 - 0.0012)), 1)
         send_telegram_message(
             f"📊 SILVER Gap-Up Recalculated (9:00–9:10 IST)\n"
             f"Entry: {entry_up}\nTarget: {target_up}\nSL1: {sl1_up}\nSL2: {sl2_up}"
         )
 
-    # If Sell Entry crossed → calculate Gap-Down levels (Silver formula)
     if crossed_sell:
-        A_down = session_low
-        B_down = session_high  # using session high for SL reference
-        entry_down = mround(A_down * (1 - 0.0012), 1)
+        entry_down = mround(session_low * (1 - 0.0012), 1)
         target_down = mround(entry_down * (1 - 0.02), 1)
-        sl1_down = mround(min(entry_down * (1 + 0.02), B_down * (1 + 0.0012)), 1)
-        sl2_down = mround(min(entry_down * (1 + 0.02), B_down * (1 + 0.0012)), 1)
-
+        sl1_down = mround(min(entry_down * (1 + 0.02), session_high * (1 + 0.0012)), 1)
+        sl2_down = mround(min(entry_down * (1 + 0.02), session_high * (1 + 0.0012)), 1)
         send_telegram_message(
             f"📊 SILVER Gap-Down Recalculated (9:00–9:10 IST)\n"
             f"Entry: {entry_down}\nTarget: {target_down}\nSL1: {sl1_down}\nSL2: {sl2_down}"
         )
+
+# ---------- Manual Command Handler ----------
+def handle_rc_silver_request(kite, instrument_token, tradingsymbol):
+    ist = pytz.timezone("Asia/Kolkata")
+    now_ist = datetime.now(ist)
+    target_time = now_ist.replace(hour=9, minute=10, second=0, microsecond=0)
+
+    if now_ist < target_time:
+        send_telegram_message("✅ /rc_silver request received, recalculation activated.")
+        time.sleep(5)
+        send_telegram_message("⏳ SILVER process is running…")
+        time.sleep(5)
+        remaining = int((target_time - datetime.now(ist)).total_seconds() / 60)
+        send_telegram_message(f"📢 SILVER alert will be sent in ~{remaining} minutes (at 9:10 IST).")
+
+        sleep_seconds = (target_time - datetime.now(ist)).total_seconds()
+        if sleep_seconds > 0:
+            time.sleep(sleep_seconds)
+
+        recalc_levels(kite, instrument_token, tradingsymbol)
+    else:
+        send_telegram_message("⚡ /rc_silver request received, recalculating immediately…")
+        recalc_levels(kite, instrument_token, tradingsymbol)
 
 # ---------- Public entry point ----------
 def start_silver_gapupdown():
