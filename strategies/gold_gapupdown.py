@@ -1,5 +1,6 @@
 import time
 import pandas as pd
+import pytz
 from datetime import datetime, timedelta
 import psycopg2
 from kiteconnect import KiteConnect, KiteTicker
@@ -81,16 +82,22 @@ def on_ticks(ws, ticks):
         ws.close()
 
 # ---------- Recalculate levels ----------
-def recalc_levels(kite, instrument_token, tradingsymbol):
-    today = datetime.today().date()
-    start_time = datetime.combine(today, datetime.min.time()).replace(hour=9, minute=0)
-    end_time = start_time.replace(minute=10)
 
-    # Fetch minute-level data for 9:00–9:10
+def recalc_levels(kite, instrument_token, tradingsymbol):
+    # Define IST timezone
+    ist = pytz.timezone("Asia/Kolkata")
+    now_ist = datetime.now(ist)
+    today = now_ist.date()
+
+    # Build 9:00–9:10 window in IST
+    start_time = ist.localize(datetime.combine(today, datetime.min.time()).replace(hour=9, minute=0))
+    end_time = ist.localize(datetime.combine(today, datetime.min.time()).replace(hour=9, minute=10))
+
+    # Fetch minute-level data for 9:00–9:10 IST
     data = kite.historical_data(instrument_token, start_time, end_time, "minute")
 
     if not data:
-        send_telegram_message("❌ No minute data found for 9:00–9:10")
+        send_telegram_message("❌ No minute data found for 9:00–9:10 IST")
         return
 
     df = pd.DataFrame(data)
@@ -115,7 +122,7 @@ def recalc_levels(kite, instrument_token, tradingsymbol):
 
     if not crossed_buy and not crossed_sell:
         send_telegram_message(
-            f"ℹ️ Between 9:00–9:10, price stayed within range.\n"
+            f"ℹ️ Between 9:00–9:10 IST, price stayed within range.\n"
             f"High: {session_high}, Low: {session_low}\n"
             f"Buy Entry: {buy_entry}, Sell Entry: {sell_entry}"
         )
@@ -128,7 +135,7 @@ def recalc_levels(kite, instrument_token, tradingsymbol):
         sl_up = mround(session_low, 1)   # SL based on session low
 
         send_telegram_message(
-            f"📊 GOLD Gap-Up Recalculated (9:00–9:10)\n"
+            f"📊 GOLD Gap-Up Recalculated (9:00–9:10 IST)\n"
             f"Entry: {entry_up}\nTarget: {target_up}\nSL: {sl_up}"
         )
 
@@ -139,7 +146,7 @@ def recalc_levels(kite, instrument_token, tradingsymbol):
         sl_down = mround(session_high, 1)  # SL based on session high
 
         send_telegram_message(
-            f"📊 GOLD Gap-Down Recalculated (9:00–9:10)\n"
+            f"📊 GOLD Gap-Down Recalculated (9:00–9:10 IST)\n"
             f"Entry: {entry_down}\nTarget: {target_down}\nSL: {sl_down}"
         )
 
