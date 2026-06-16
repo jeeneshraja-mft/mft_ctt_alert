@@ -152,7 +152,8 @@ def recalc_levels(kite, instrument_token, tradingsymbol):
 
 # ---------- Manual Command Handler ----------
 def handle_rc_gold_request(kite, instrument_token, tradingsymbol):
-    now = datetime.now()
+    ist = pytz.timezone("Asia/Kolkata")
+    now = datetime.now(ist)
     target_time = now.replace(hour=9, minute=10, second=0, microsecond=0)
 
     if now < target_time:
