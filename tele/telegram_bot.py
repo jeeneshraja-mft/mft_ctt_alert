@@ -4,16 +4,16 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 from brokers.kite_connect import get_kite_instance, generate_login_url
 from strategies.gold_price import calculate_gold_strategy
 from strategies.silver_price import calculate_silver_strategy
-from strategies.nifty_options import calculate_nifty_options   # ✅ Import your NIFTY strategy
+from strategies.nifty_options import calculate_nifty_options
 from tele.telegram_alert import send_telegram_message
 from dotenv import load_dotenv
 
-# ✅ Import the new handler from gold_gapupdown
+# ✅ Import the new handlers
 from strategies.gold_gapupdown import handle_rc_gold_request, get_latest_goldten_token
+from strategies.silver_gapupdown import handle_rc_silver_request, get_latest_silver_token
 
 # Load environment variables from .env
 load_dotenv()
-
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 # =========================================
@@ -82,25 +82,17 @@ async def run_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         send_login_link()
         return
     try:
-        # Run gold and silver strategies
         gold = calculate_gold_strategy(kite)
         silver = calculate_silver_strategy(kite)
-
-        # Run nifty strategy
         instrument_token = 256265  # Nifty index token
         calculate_nifty_options(kite, instrument_token)
 
-        # Reply inline for gold and silver
         await update.message.reply_text(format_message(gold, "🟡 GOLD"))
         await update.message.reply_text(format_message(silver, "⚪ SILVER"))
-
-        # Nifty strategy already sends its own detailed Telegram messages
         await update.message.reply_text("📊 NIFTY strategy executed. Levels sent to Telegram.")
-
     except Exception as e:
         await update.message.reply_text(f"❌ Strategy run error: {e}")
 
-# ✅ NEW NIFTY COMMAND
 async def nifty_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kite = get_kite_instance()
     if not kite:
@@ -108,7 +100,7 @@ async def nifty_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         send_login_link()
         return
     try:
-        instrument_token = 256265  # Nifty index token
+        instrument_token = 256265
         calculate_nifty_options(kite, instrument_token)
         await update.message.reply_text("📊 NIFTY strategy executed. Levels sent to Telegram.")
     except Exception as e:
@@ -123,11 +115,24 @@ async def rc_gold_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     try:
         instrument_token, tradingsymbol = get_latest_goldten_token(kite)
-        # Call the handler from gold_gapupdown
         handle_rc_gold_request(kite, instrument_token, tradingsymbol)
         await update.message.reply_text("📊 GOLD recalculation process triggered. Alerts will be sent to Telegram.")
     except Exception as e:
         await update.message.reply_text(f"❌ rc_gold error: {e}")
+
+# ✅ NEW SILVER RECALCULATION COMMAND
+async def rc_silver_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    kite = get_kite_instance()
+    if not kite:
+        await update.message.reply_text("❌ Kite login expired")
+        send_login_link()
+        return
+    try:
+        instrument_token, tradingsymbol = get_latest_silver_token(kite)
+        handle_rc_silver_request(kite, instrument_token, tradingsymbol)
+        await update.message.reply_text("📊 SILVER recalculation process triggered. Alerts will be sent to Telegram.")
+    except Exception as e:
+        await update.message.reply_text(f"❌ rc_silver error: {e}")
 
 # =========================================
 # ERROR HANDLER
@@ -146,8 +151,9 @@ def start_bot(use_signals=False):
     app.add_handler(CommandHandler("gold", gold_command))
     app.add_handler(CommandHandler("silver", silver_command))
     app.add_handler(CommandHandler("run", run_command))
-    app.add_handler(CommandHandler("nifty", nifty_command))   # ✅ Register new command
-    app.add_handler(CommandHandler("rc_gold", rc_gold_command))   # ✅ Register new gold recalculation command
+    app.add_handler(CommandHandler("nifty", nifty_command))
+    app.add_handler(CommandHandler("rc_gold", rc_gold_command))     # ✅ Register new gold recalculation command
+    app.add_handler(CommandHandler("rc_silver", rc_silver_command)) # ✅ Register new silver recalculation command
     app.add_error_handler(error_handler)
 
     print("🤖 Telegram bot running...")

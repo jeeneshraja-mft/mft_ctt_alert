@@ -1,6 +1,7 @@
 import pandas as pd
 from datetime import datetime, timedelta
 import psycopg2
+import pytz
 from kiteconnect import KiteConnect, KiteTicker
 from config.config import SUPABASE_DSN, API_KEY
 from database.db_connect import load_token
@@ -80,40 +81,79 @@ def on_ticks(ws, ticks):
         ws.close()
 
 # ---------- Recalculate levels ----------
+
 def recalc_levels(kite, instrument_token, tradingsymbol):
-    today = datetime.today().date()
-    from_date = today - timedelta(days=10)
-    data = kite.historical_data(instrument_token, from_date, today, "day")
+    # Define IST timezone
+    ist = pytz.timezone("Asia/Kolkata")
+    now_ist = datetime.now(ist)
+    today = now_ist.date()
+
+    # Build 9:00–9:10 window in IST
+    start_time = ist.localize(datetime.combine(today, datetime.min.time()).replace(hour=9, minute=0))
+    end_time = ist.localize(datetime.combine(today, datetime.min.time()).replace(hour=9, minute=10))
+
+    # Fetch minute-level data for 9:00–9:10 IST
+    data = kite.historical_data(instrument_token, start_time, end_time, "minute")
+
+    if not data:
+        send_telegram_message("❌ No minute data found for 9:00–9:10 IST")
+        return
 
     df = pd.DataFrame(data)
-    df["date"] = pd.to_datetime(df["date"]).dt.date
-    df = df[df["date"] < today].sort_values(by="date", ascending=False)
+    df["date"] = pd.to_datetime(df["date"])
 
-    # Gap-Up Inputs
-    A_up = df.iloc[0]["high"]
-    B_up = df.head(2)["low"].min()
-    C_up = df.head(4)["low"].min()
+    # Calculate high and low for the first 10 minutes
+    session_high = df["high"].max()
+    session_low = df["low"].min()
 
-    entry_up = mround(A_up * (1 + 0.0012), 1)
-    target_up = mround(entry_up * (1 + 0.02), 1)
-    sl1_up = mround(max(entry_up * (1 - 0.02), B_up * (1 - 0.0012)), 1)
-    sl2_up = mround(max(entry_up * (1 - 0.02), C_up * (1 - 0.0012)), 1)
+    # Load today's strategy levels from DB
+    levels = load_silver_strategy_from_db()
+    if not levels:
+        send_telegram_message("❌ No silver strategy levels found in DB")
+        return
 
-    # Gap-Down Inputs
-    A_down = df.iloc[0]["low"]
-    B_down = df.head(2)["high"].max()
-    C_down = df.head(4)["high"].max()
+    buy_entry = levels["buy_entry"]
+    sell_entry = levels["sell_entry"]
 
-    entry_down = mround(A_down * (1 - 0.0012), 1)
-    target_down = mround(entry_down * (1 - 0.02), 1)
-    sl1_down = mround(min(entry_down * (1 + 0.02), B_down * (1 + 0.0012)), 1)
-    sl2_down = mround(min(entry_down * (1 + 0.02), C_down * (1 + 0.0012)), 1)
+    # Validation: check if buy_entry or sell_entry was crossed
+    crossed_buy = session_high >= buy_entry
+    crossed_sell = session_low <= sell_entry
 
-    send_telegram_message(
-        f"📊 9:15 SILVER Recalculated\n"
-        f"--- Gap-Up ---\nEntry: {entry_up}\nTarget: {target_up}\nSL1: {sl1_up}\nSL2: {sl2_up}\n"
-        f"--- Gap-Down ---\nEntry: {entry_down}\nTarget: {target_down}\nSL1: {sl1_down}\nSL2: {sl2_down}"
-    )
+    if not crossed_buy and not crossed_sell:
+        send_telegram_message(
+            f"ℹ️ Between 9:00–9:10 IST, price stayed within range.\n"
+            f"High: {session_high}, Low: {session_low}\n"
+            f"Buy Entry: {buy_entry}, Sell Entry: {sell_entry}"
+        )
+        return
+
+    # If Buy Entry crossed → calculate Gap-Up levels (Silver formula)
+    if crossed_buy:
+        A_up = session_high
+        B_up = session_low  # using session low for SL reference
+        entry_up = mround(A_up * (1 + 0.0012), 1)
+        target_up = mround(entry_up * (1 + 0.02), 1)
+        sl1_up = mround(max(entry_up * (1 - 0.02), B_up * (1 - 0.0012)), 1)
+        sl2_up = mround(max(entry_up * (1 - 0.02), B_up * (1 - 0.0012)), 1)
+
+        send_telegram_message(
+            f"📊 SILVER Gap-Up Recalculated (9:00–9:10 IST)\n"
+            f"Entry: {entry_up}\nTarget: {target_up}\nSL1: {sl1_up}\nSL2: {sl2_up}"
+        )
+
+    # If Sell Entry crossed → calculate Gap-Down levels (Silver formula)
+    if crossed_sell:
+        A_down = session_low
+        B_down = session_high  # using session high for SL reference
+        entry_down = mround(A_down * (1 - 0.0012), 1)
+        target_down = mround(entry_down * (1 - 0.02), 1)
+        sl1_down = mround(min(entry_down * (1 + 0.02), B_down * (1 + 0.0012)), 1)
+        sl2_down = mround(min(entry_down * (1 + 0.02), B_down * (1 + 0.0012)), 1)
+
+        send_telegram_message(
+            f"📊 SILVER Gap-Down Recalculated (9:00–9:10 IST)\n"
+            f"Entry: {entry_down}\nTarget: {target_down}\nSL1: {sl1_down}\nSL2: {sl2_down}"
+        )
 
 # ---------- Public entry point ----------
 def start_silver_gapupdown():
