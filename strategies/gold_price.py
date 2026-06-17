@@ -15,40 +15,30 @@ def get_latest_goldten_token(kite: KiteConnect):
     mcx_instruments = kite.instruments("MCX")
     today = datetime.now(IST).date()
 
-
     valid_contracts = []
-
     for inst in mcx_instruments:
         ts = inst["tradingsymbol"]
-
-        # ✅ STRICT FILTER
         if ts.startswith("GOLDTEN") and inst["segment"] == "MCX-FUT":
             expiry = inst["expiry"]
-
-            # ✅ ONLY FUTURE CONTRACTS
             if expiry and expiry >= today:
                 valid_contracts.append(inst)
 
     if not valid_contracts:
         raise Exception("❌ No active GOLDTEN contracts found")
 
-    # ✅ Sort by expiry date
     valid_contracts = sorted(valid_contracts, key=lambda x: x["expiry"])
 
-    # ✅ Pick contract with expiry > 10 days
     selected = None
     for inst in valid_contracts:
-        days_left = (inst["expiry"] - today).days
-        if days_left > 10:
+        working_days_left = working_days_between(today, inst["expiry"])
+        if working_days_left > 10:
             selected = inst
             break
 
     if not selected:
-        # fallback: nearest expiry if all are within 10 days
         selected = valid_contracts[0]
 
     print(f"✅ Using GOLDTEN contract: {selected['tradingsymbol']} (Expiry: {selected['expiry']})")
-
     return selected["instrument_token"], selected["tradingsymbol"]
 
 

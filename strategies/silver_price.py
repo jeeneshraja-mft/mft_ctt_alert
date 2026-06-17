@@ -14,8 +14,8 @@ IST = pytz.timezone("Asia/Kolkata")
 def get_latest_silver_token(kite: KiteConnect):
     mcx_instruments = kite.instruments("MCX")
     today = datetime.now(IST).date()
-    valid_contracts = []
 
+    valid_contracts = []
     for inst in mcx_instruments:
         ts = inst["tradingsymbol"]
         if inst["segment"] == "MCX-FUT" and ts.startswith(("SILVERMIC", "SILVERM")):
@@ -26,23 +26,18 @@ def get_latest_silver_token(kite: KiteConnect):
     if not valid_contracts:
         raise Exception("❌ No active SILVERMIC/SILVERM contracts found")
 
-    # Prefer SILVERMIC first
     silvermic = [x for x in valid_contracts if x["tradingsymbol"].startswith("SILVERMIC")]
     contracts = silvermic if silvermic else valid_contracts
-
-    # Sort by expiry date
     contracts = sorted(contracts, key=lambda x: x["expiry"])
 
-    # ✅ Pick contract with expiry > 10 days
     selected = None
     for inst in contracts:
-        days_left = (inst["expiry"] - today).days
-        if days_left > 10:
+        working_days_left = working_days_between(today, inst["expiry"])
+        if working_days_left > 10:
             selected = inst
             break
 
     if not selected:
-        # fallback: nearest expiry if all are within 10 days
         selected = contracts[0]
 
     print(f"✅ Using SILVER contract: {selected['tradingsymbol']} (Expiry: {selected['expiry']})")
