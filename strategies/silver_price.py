@@ -3,6 +3,7 @@ from datetime import datetime,date, timedelta
 import pytz
 import pandas as pd
 from database.db_connect import save_silver_strategy
+from strategies.gold_price import mround, IST, working_days_between
 
 # ---------- Helper ----------
 def mround(value, base=1):

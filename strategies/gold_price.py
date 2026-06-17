@@ -165,3 +165,13 @@ def calculate_gold_strategy(kite):
     else:
         print("📨 Gold strategy unchanged — only alert")
     return data
+
+def working_days_between(start_date, end_date):
+    """Count working days (Mon-Fri) between two dates inclusive of start, exclusive of end."""
+    day_count = 0
+    current = start_date
+    while current < end_date:
+        if current.weekday() < 5:  # 0=Monday, 6=Sunday
+            day_count += 1
+        current += timedelta(days=1)
+    return day_count
